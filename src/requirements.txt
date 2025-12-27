@@ -1,0 +1,5 @@
+openai
+python-dotenv
+azure-identity
+akshare
+pandas
