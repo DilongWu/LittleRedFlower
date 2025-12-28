@@ -2,6 +2,7 @@ import os
 import datetime
 import akshare as ak
 import pandas as pd
+import markdown
 from openai import AzureOpenAI
 from azure.identity import DefaultAzureCredential
 
@@ -302,7 +303,56 @@ def generate_briefing(news_content):
 def save_markdown(content, filename):
     with open(filename, "w", encoding="utf-8") as f:
         f.write(content)
-    print(f"晨训已生成: {filename}")
+    print(f"晨训 Markdown 已生成: {filename}")
+
+def save_html(content, filename):
+    # 将 Markdown 转换为 HTML
+    html_body = markdown.markdown(content, extensions=['tables', 'fenced_code'])
+    
+    # 构造完整的 HTML，添加一些基础样式以优化阅读体验
+    full_html = f"""
+    <!DOCTYPE html>
+    <html lang="zh-CN">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>睿组合小红花晨讯</title>
+        <style>
+            body {{
+                font-family: "Microsoft YaHei", "SimHei", sans-serif;
+                line-height: 1.6;
+                max_width: 800px;
+                margin: 0 auto;
+                padding: 20px;
+                color: #333;
+            }}
+            table {{
+                width: 100%;
+                border-collapse: collapse;
+            }}
+            /* 针对数据来源的代码块样式 */
+            pre {{
+                background-color: #f5f5f5;
+                padding: 15px;
+                border-radius: 5px;
+                overflow-x: auto;
+                font-family: Consolas, monospace;
+            }}
+            /* 针对生成的 HTML 表格样式 (如果有) */
+            td, th {{
+                padding: 5px;
+            }}
+        </style>
+    </head>
+    <body>
+        {html_body}
+    </body>
+    </html>
+    """
+    
+    with open(filename, "w", encoding="utf-8") as f:
+        f.write(full_html)
+    print(f"晨训 HTML 已生成: {filename}")
 
 if __name__ == "__main__":
     # 1. 获取自动数据
@@ -337,5 +387,10 @@ if __name__ == "__main__":
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
             
-        output_file = os.path.join(output_dir, f"{datetime.datetime.now().strftime('%Y-%m-%d')}-Briefing.md")
-        save_markdown(briefing_content, output_file)
+        # 保存 Markdown
+        md_file = os.path.join(output_dir, f"{datetime.datetime.now().strftime('%Y-%m-%d')}-Briefing.md")
+        save_markdown(briefing_content, md_file)
+        
+        # 保存 HTML
+        html_file = os.path.join(output_dir, f"{datetime.datetime.now().strftime('%Y-%m-%d')}-Briefing.html")
+        save_html(briefing_content, html_file)

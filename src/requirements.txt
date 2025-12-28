@@ -3,3 +3,4 @@ python-dotenv
 azure-identity
 akshare
 pandas
+markdown
