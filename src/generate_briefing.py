@@ -7,10 +7,9 @@ from azure.identity import DefaultAzureCredential
 
 # 配置 Azure OpenAI
 AZURE_CONFIG = {
-    "managedIdentityClientId": "",
-    "endpoint": "",
+    
     "deploymentName": "gpt-4.1-mini",
-    "maxTokens": 800,
+    "maxTokens": 2500,
     "temperature": 0.7
 }
 
@@ -42,6 +41,7 @@ def fetch_market_data():
                 change_pct = row.iloc[0]['涨跌幅']
                 data_summary.append(f"{name}: {latest} ({change_pct}%)")
         data_summary.append("")
+        print(f"DEBUG: 成功从东方财富获取指数数据: {data_summary}")
     except AttributeError:
         # 如果 stock_zh_index_spot_em 不存在，尝试 stock_zh_index_spot_sina
         try:
@@ -112,7 +112,7 @@ def fetch_market_data():
                 zt_pool_df = zt_pool_df.sort_values(by='连板数', ascending=False)
             
             # 取前 15 只龙头 (连板数高的)
-            for _, row in zt_pool_df.head(15).iterrows():
+            for _, row in zt_pool_df.iterrows():
                 name = row.get('名称')
                 lb = row.get('连板数')
                 first_time = row.get('首次封板时间')
@@ -182,10 +182,11 @@ def generate_briefing(news_content):
     # 定义晨报的样式模板
     # 严格模仿"睿组合小红花晨讯"的样式
     system_prompt = f"""
-    你是一位专业的广发证券投资顾问（施晓斌，执业证书 xxxxxxx）。请根据提供的市场资讯，撰写一篇风格严格模仿“睿组合小红花晨讯”的投资晨报。
+    你是一位专业的广发证券投资顾问（施晓斌，执业证书 S0260617110030）。请根据提供的市场资讯，撰写一篇风格严格模仿“睿组合小红花晨讯”的投资晨报。
 
     ### 1. 核心样式规则 (HTML in Markdown)
     请直接输出包含 HTML 标签的 Markdown，以实现复杂的排版和颜色。
+    **严禁使用 Markdown 的列表（如 - 或 1.）或分段标题（如 ## 标题），所有内容必须是 3-4 段紧凑的段落文本，像新闻通稿一样连贯。**
 
     **头部排版 (必须完全一致):**
     请使用 HTML 表格来模拟头部布局：
@@ -211,37 +212,62 @@ def generate_briefing(news_content):
     <hr style="border-top: 2px solid black; margin-top: 0px;">
     ```
 
-    ### 2. 正文内容与颜色逻辑
-    **不要使用** "## 市场回顾" 这种分段标题。正文应该是 **3-4 段紧凑的文字**，段落之间空一行。
+    ### 2. 正文结构 (4段式，每段约150-200字，紧凑排版)
+    **第一段：市场全景回顾**
+    *   描述昨日指数表现（涨跌幅）、成交金额（必须提及具体数值）、市场情绪（如“普涨”、“分化”、“修复”）。
+    *   概括领涨和领跌的板块。
+    *   **关键要求**：多用数据支撑，如“成交额突破1.5万亿”、“超4000家上涨”。
 
-    **颜色使用规则 (非常重要):**
-    *   **<font color='red'>红色 (Red)</font>**：
-        *   **上涨** (如 "沪指上涨", "收获六连阳", "创新高").
-        *   **利好消息** (如 "政策驱动", "重组", "业绩超预期").
-        *   **强势板块/个股** (如 "宁德时代大涨", "半导体爆发").
-        *   **乐观观点** (如 "牛市起点", "积极布局").
-        *   **关键强调** (如 "核心主线", "资金流入").
-    *   **<font color='blue'>蓝色 (Blue)</font>**：
-        *   **下跌** (如 "创业板指下跌", "冲高回落", "调整").
-        *   **利空/风险** (如 "成交额萎缩", "外资流出", "减持").
-        *   **弱势板块** (如 "白酒回调", "地产承压").
-        *   **谨慎观点** (如 "震荡整理", "观望").
-        *   **中性/描述性数据** (如 "成交额不足8000亿", "沪指报3000点").
+    **第二段：市场深度逻辑分析**
+    *   分析涨跌背后的原因（如“政策驱动”、“外围影响”、“资金高低切换”）。
+    *   点评市场风格（如“权重搭台”、“题材唱戏”、“高位股分歧”）。
+    *   结合【涨停梯队数据】，点评连板高度和短线情绪（如“高标股出现亏钱效应”、“连板晋级率提升”），可提及1-2只代表性龙头股。
+
+    **第三段：热点题材与新闻驱动**
+    *   将【最新资讯】中的新闻融入到板块分析中。**不要罗列新闻**，而是写成“受...消息刺激，...板块表现活跃”或“...行业迎来利好，相关个股走强”。
+    *   重点挖掘科技、消费、政策相关的题材。
+
+    **第四段：后市展望与策略建议**
+    *   给出对今日或短期市场的判断（如“震荡整理”、“有望冲击新高”）。
+    *   给出具体操作建议（如“控制仓位”、“逢低吸纳”、“去弱留强”）。
+
+    **结尾页脚 (必须完全一致)**
+    正文结束后，请输出以下 HTML 表格作为页脚（全蓝色）：
+    ```html
+    <br>
+    <table style="width: 100%; border: none; color: blue; font-weight: bold; font-size: 14px;">
+        <tr>
+            <td style="text-align: left;">• 订阅路径：易淘金APP-投顾-睿组合-睿组合xx号 (小红花)</td>
+            <td style="text-align: right;">• 股市有风险，投资需谨慎，组合建议仅供参考</td>
+        </tr>
+    </table>
+    ```
+
+    ### 3. 颜色使用规则 (严格执行 - 必须大量使用颜色)
+    **原则：除了连接词和标点符号，几乎所有实词都应该上色。不要让黑色文字占据主导。**
+
+    *   **<font color='red'>红色 (Red) - 代表积极、强势、上涨、热点</font>**：
+        *   **所有上涨相关的动词/形容词**：如 "上涨", "收红", "大涨", "创新高", "七连阳", "反弹", "修复", "活跃", "爆发", "走强", "回升".
+        *   **所有强势板块和个股名称**：如 "半导体", "宁德时代", "大消费", "商业航天".
+        *   **所有利好因素**：如 "政策红利", "资金流入", "业绩超预期", "重组", "突破".
+        *   **核心观点/机会**：如 "牛市初期", "积极做多", "主线", "结构性机会".
+        *   **关键正向数据**：如 "1.5万亿", "超4000家".
+
+    *   **<font color='blue'>蓝色 (Blue) - 代表消极、弱势、下跌、风险、冷静描述</font>**：
+        *   **所有下跌相关的动词/形容词**：如 "下跌", "收跌", "翻绿", "调整", "回落", "跳水", "下挫", "承压", "走弱".
+        *   **所有弱势板块和个股名称**：如 "地产", "白酒" (当它们下跌时).
+        *   **所有负面/谨慎因素**：如 "缩量", "分歧", "流出", "减持", "解禁", "利空", "观望", "谨慎".
+        *   **中性偏空的描述**：如 "震荡", "分化", "存量博弈", "结构性", "轮动".
+        *   **结尾的订阅路径和风险提示**。
+
     *   **黑色 (Black)**：
-        *   连接词、普通叙述、背景描述。
+        *   仅用于连接词 (的, 了, 是, 和)、标点符号、以及非常普通的叙述性文字。
 
-    ### 3. 写作结构
-    *   **第一段 (市场全景)**：描述指数涨跌、成交量、北向资金、市场情绪。重点突出“涨”或“跌”的定性。
-    *   **第二段 (板块与热点)**：详细描述领涨板块（红）和领跌板块（蓝）。结合新闻解释原因（如“受...政策催化”）。
-    *   **第三段 (涨停复盘)**：请分析【涨停梯队数据】，挑选 3-5 只代表性个股（如连板高度最高的），标注其**涨停时间**（如 "09:35封板"）和**分时形态**（根据封板时间和炸板次数推断，如 "早盘快速封板"、"烂板回封"、"T字板"）。
-    *   **第四段 (宏观与策略)**：结合宏观新闻（如美联储、国内政策）给出策略建议。
-    *   **结尾 (订阅信息)**：最后一句必须是蓝色背景或蓝色文字的订阅路径：
-        *   `<span style="background-color: blue; color: white; padding: 2px;">订阅路径：易淘金APP-投顾-睿组合-睿组合18号 (小红花)</span>`
-
-    ### 4. 语气风格
-    *   专业、干练、逻辑性强。
-    *   多用金融术语（如“震荡上行”、“结构性分化”、“存量博弈”）。
-    *   **不要**输出 Markdown 代码块标记 (```markdown)，直接输出内容。
+    ### 4. 写作风格
+    *   **紧凑密集**：不要分点，不要换行太频繁，像新闻通稿一样连贯。
+    *   **专业术语**：使用“结构性行情”、“存量博弈”、“获利盘兑现”、“情绪冰点”等专业词汇。
+    *   **数据驱动**：尽可能引用输入数据中的具体数值。
+    *   **重要：不要使用 Markdown 代码块**。请直接输出 HTML/Markdown 混合文本，不要用 ```html 或 ```markdown 包裹。
     """
 
     user_prompt = f"以下是今日的市场资讯素材：\n\n{news_content}"
@@ -256,7 +282,20 @@ def generate_briefing(news_content):
             temperature=AZURE_CONFIG["temperature"],
             max_tokens=AZURE_CONFIG["maxTokens"]
         )
-        return response.choices[0].message.content
+        content = response.choices[0].message.content
+        
+        # 后处理：移除可能存在的 Markdown 代码块标记
+        if content.strip().startswith("```"):
+            lines = content.strip().split('\n')
+            # 移除第一行 (如 ```html)
+            if lines[0].startswith("```"):
+                lines = lines[1:]
+            # 移除最后一行 (如 ```)
+            if lines and lines[-1].strip() == "```":
+                lines = lines[:-1]
+            content = "\n".join(lines)
+            
+        return content
     except Exception as e:
         return f"生成失败: {str(e)}"
 
@@ -286,8 +325,17 @@ if __name__ == "__main__":
         # print(f"发送给 AI 的内容预览:\n{final_content[:500]}...") # 调试用
         briefing_content = generate_briefing(final_content)
         
+        # 添加数据来源板块
+        if fetched_data:
+            briefing_content += "\n\n---\n### 数据来源\n\n```text\n" + fetched_data + "\n```"
+
         # 4. 保存文件
-        # 获取脚本所在目录，确保文件保存在 src 目录下，无论从哪里运行
+        # 获取脚本所在目录
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        output_file = os.path.join(script_dir, f"{datetime.datetime.now().strftime('%Y-%m-%d')}-Briefing.md")
+        # 定义输出目录为项目根目录下的 briefings 文件夹
+        output_dir = os.path.join(os.path.dirname(script_dir), "briefings")
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+            
+        output_file = os.path.join(output_dir, f"{datetime.datetime.now().strftime('%Y-%m-%d')}-Briefing.md")
         save_markdown(briefing_content, output_file)

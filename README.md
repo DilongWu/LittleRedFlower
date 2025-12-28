@@ -53,8 +53,8 @@ python src/generate_briefing.py
 
 ### 4. 查看结果
 
-脚本运行完成后，会在 `src/` 目录下生成当天的 Markdown 文件，例如：
-`src/2025-12-27-Briefing.md`
+脚本运行完成后，会在项目根目录下的 **`briefings/`** 文件夹中生成当天的 Markdown 文件，例如：
+`briefings/2025-12-28-Briefing.md`
 
 你可以直接将内容复制到微信、邮件或支持 Markdown/HTML 的发布平台。
 
@@ -73,12 +73,13 @@ python src/generate_briefing.py
 
 ```text
 LittleRedFlower/
+├── briefings/                  # [自动生成] 存放生成的晨报文件
+│   └── YYYY-MM-DD-Briefing.md
 ├── src/
 │   ├── generate_briefing.py    # 核心生成脚本
 │   ├── news_input.txt          # 手动补充素材入口
 │   ├── requirements.txt        # Python 依赖
-│   ├── last_successful_data.txt # [自动生成] 数据缓存
-│   └── YYYY-MM-DD-Briefing.md  # [自动生成] 最终晨报
+│   └── last_successful_data.txt # [自动生成] 数据缓存
 ├── examples/                   # 样式参考案例
 ├── run_briefing.bat            # Windows 一键运行脚本
 └── README.md                   # 说明文档
