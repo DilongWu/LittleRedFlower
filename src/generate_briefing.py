@@ -19,6 +19,48 @@ AZURE_CONFIG = {
 def get_date_str():
     return datetime.datetime.now().strftime("%Y年%m月%d日")
 
+def get_stock_reason(symbol, name):
+    """
+    尝试获取个股涨停原因
+    """
+    try:
+        # 获取最近的新闻
+        news_df = ak.stock_news_em(symbol=symbol)
+        if news_df.empty:
+            return ""
+        
+        # 关键词匹配
+        keywords = ["涨停", "连板", "异动", "大涨"]
+        reason_keywords = ["原因", "分析", "揭秘", "点评", "为何"]
+        
+        for _, row in news_df.head(20).iterrows():
+            title = row.get('新闻标题', '')
+            if not title:
+                continue
+                
+            # 1. 标题包含名字且包含涨停关键词
+            if name in title and any(k in title for k in keywords):
+                # 2. 如果包含原因关键词，优先返回
+                if any(rk in title for rk in reason_keywords):
+                    return f" (可能原因: {title})"
+                # 3. 或者是 "X连板" 这种强特征
+                if "连板" in title:
+                    return f" (相关资讯: {title})"
+            
+            # 4. 尝试匹配 "概念"
+            if name in title and "概念" in title:
+                 return f" (相关资讯: {title})"
+
+        # 如果没找到强匹配，尝试找第一条包含名字的新闻
+        for _, row in news_df.head(5).iterrows():
+             title = row.get('新闻标题', '')
+             if name in title:
+                 return f" (相关资讯: {title})"
+                 
+    except Exception:
+        pass
+    return ""
+
 def fetch_daily_market_data():
     print("正在从 AkShare 获取实时市场数据 (日报模式)...")
     data_summary = []
@@ -62,6 +104,49 @@ def fetch_daily_market_data():
              print(f"获取指数数据失败 (Sina): {e}")
     except Exception as e:
         print(f"获取指数数据失败: {e}")
+
+    # 1.2 获取两市成交额 (新增)
+    try:
+        # 使用 daily_em 接口获取历史成交额以计算变化量
+        sh_daily = ak.stock_zh_index_daily_em(symbol='sh000001')
+        sz_daily = ak.stock_zh_index_daily_em(symbol='sz399001')
+        
+        if not sh_daily.empty and not sz_daily.empty:
+            # 确保日期列为 datetime 类型以便合并
+            sh_daily['date'] = pd.to_datetime(sh_daily['date'])
+            sz_daily['date'] = pd.to_datetime(sz_daily['date'])
+            
+            # 合并数据
+            merged = pd.merge(sh_daily[['date', 'amount']], sz_daily[['date', 'amount']], on='date', suffixes=('_sh', '_sz'))
+            merged['total_amount'] = merged['amount_sh'] + merged['amount_sz']
+            
+            if len(merged) >= 2:
+                today_row = merged.iloc[-1]
+                prev_row = merged.iloc[-2]
+                
+                today_amount = today_row['total_amount']
+                prev_amount = prev_row['total_amount']
+                
+                change = today_amount - prev_amount
+                change_trillion = change / 1e12
+                today_trillion = today_amount / 1e12
+                
+                data_summary.append(f"【昨日成交额】")
+                data_summary.append(f"沪深两市总成交额: {today_trillion:.2f}万亿元")
+                
+                if change > 0:
+                    data_summary.append(f"较前一交易日放量: {abs(change_trillion):.2f}万亿元")
+                else:
+                    data_summary.append(f"较前一交易日缩量: {abs(change_trillion):.2f}万亿元")
+                    
+                data_summary.append(f"- 上证指数成交额: {today_row['amount_sh']/1e12:.2f}万亿元")
+                data_summary.append(f"- 深证成指成交额: {today_row['amount_sz']/1e12:.2f}万亿元")
+                data_summary.append("")
+                print(f"DEBUG: 成功计算成交额: {today_trillion:.2f}万亿, 变化: {change_trillion:.2f}万亿")
+            else:
+                print("数据不足，无法计算成交额变化")
+    except Exception as e:
+        print(f"计算成交额失败: {e}")
 
     # 1.5 获取板块涨跌幅 (新增)
     try:
@@ -148,17 +233,26 @@ def fetch_daily_market_data():
                 zt_pool_df['连板数'] = pd.to_numeric(zt_pool_df['连板数'], errors='coerce')
                 zt_pool_df = zt_pool_df.sort_values(by='连板数', ascending=False)
             
-            # 取所有涨停股
+            # 取所有涨停股 (限制前 15 个获取原因，避免太慢)
+            count = 0
             for _, row in zt_pool_df.iterrows():
                 name = row.get('名称')
+                code = row.get('代码')
                 lb = row.get('连板数')
                 first_time = row.get('首次封板时间')
                 last_time = row.get('最后封板时间')
                 open_times = row.get('炸板次数')
                 industry = row.get('所属行业')
                 
+                reason_str = ""
+                # 只对前 10 名连板股获取原因，或者连板数 >= 2 的
+                if count < 10 or (isinstance(lb, (int, float)) and lb >= 2):
+                    print(f"DEBUG: 正在获取 {name} ({code}) 的涨停原因...")
+                    reason_str = get_stock_reason(code, name)
+                    count += 1
+                
                 # 构造描述给 AI 分析
-                data_summary.append(f"- {name} ({lb}连板): 行业-{industry}, 首次封板-{first_time}, 最后封板-{last_time}, 炸板-{open_times}次")
+                data_summary.append(f"- {name} ({lb}连板): 行业-{industry}, 首次封板-{first_time}, 最后封板-{last_time}, 炸板-{open_times}次{reason_str}")
         else:
             data_summary.append("未获取到涨停数据。")
 
@@ -229,6 +323,36 @@ def fetch_weekly_market_data():
         data_summary.append("")
     except Exception as e:
         print(f"获取指数周度数据失败: {e}")
+
+    # 1.2 Calculate Weekly Turnover (New)
+    try:
+        # Use EM interface for daily data as it includes 'amount'
+        sh_df = ak.stock_zh_index_daily_em(symbol='sh000001')
+        sz_df = ak.stock_zh_index_daily_em(symbol='sz399001')
+        
+        if not sh_df.empty and not sz_df.empty:
+            # Ensure date column is datetime for merging
+            sh_df['date'] = pd.to_datetime(sh_df['date'])
+            sz_df['date'] = pd.to_datetime(sz_df['date'])
+            
+            # Merge on date
+            merged = pd.merge(sh_df[['date', 'amount']], sz_df[['date', 'amount']], on='date', suffixes=('_sh', '_sz'))
+            
+            # Get last 5 days
+            last_5 = merged.tail(5)
+            
+            if not last_5.empty:
+                last_5['total_amount'] = last_5['amount_sh'] + last_5['amount_sz']
+                avg_turnover = last_5['total_amount'].mean()
+                avg_turnover_trillion = avg_turnover / 1e12
+                
+                data_summary.append(f"【上周成交额】")
+                data_summary.append(f"沪深两市日均成交额: {avg_turnover_trillion:.2f}万亿元")
+                data_summary.append("")
+                print(f"DEBUG: 成功计算周均成交额: {avg_turnover_trillion:.2f}万亿")
+            
+    except Exception as e:
+        print(f"计算周成交额失败: {e}")
 
     # 1.5 获取板块涨跌幅 (周度 - 使用当前实时排名近似)
     try:
@@ -372,9 +496,9 @@ def generate_briefing(news_content, report_type="daily"):
         prompt_role = "昨日"
         prompt_style = "睿组合小红花晨讯"
         section1_title = "市场全景回顾"
-        section1_desc = "描述昨日指数表现（涨跌幅）、成交金额（必须提及具体数值）、市场情绪（如“普涨”、“分化”、“修复”）。概括领涨和领跌的板块。请务必使用“昨日”作为时间状语。"
+        section1_desc = "描述昨日指数表现（涨跌幅）、成交金额及变化（必须提及具体数值）、市场情绪（如“普涨”、“分化”、“修复”）。概括领涨和领跌的板块。请务必使用“昨日”作为时间状语。"
         section2_title = "市场深度逻辑分析"
-        section2_desc = "分析涨跌背后的原因（如“政策驱动”、“外围影响”、“资金高低切换”）。点评市场风格（如“权重搭台”、“题材唱戏”、“高位股分歧”）。结合【涨停梯队数据】，点评连板高度和短线情绪。"
+        section2_desc = "分析涨跌背后的原因（如“政策驱动”、“外围影响”、“资金高低切换”）。点评市场风格（如“权重搭台”、“题材唱戏”、“高位股分歧”）。结合【涨停梯队数据】及其中的个股涨停原因（如有），点评连板高度和短线情绪。"
         section3_title = "热点题材与新闻驱动"
         section3_desc = "将【最新资讯】中的新闻融入到板块分析中。不要罗列新闻，而是写成“受...消息刺激，...板块表现活跃”。内容要丰富详实，不要简略。"
         section4_title = "后市展望与策略建议"
@@ -402,7 +526,7 @@ def generate_briefing(news_content, report_type="daily"):
         </tr>
         <tr>
             <td style="text-align: left;">
-                <span style="color: blue; font-weight: bold; text-decoration: underline;">张济涛 广发证券投资顾问 (S0260617110030)</span>
+                <span style="color: blue; font-weight: bold; text-decoration: underline;">Will.S 广发证券投资顾问 (S0260617110030)</span>
             </td>
             <td style="text-align: right;">
                 <span style="border: 1px solid black; padding: 2px; font-weight: bold;">{date_str_header}</span>
