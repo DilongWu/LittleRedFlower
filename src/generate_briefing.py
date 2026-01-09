@@ -9,8 +9,7 @@ from azure.identity import DefaultAzureCredential
 
 # 配置 Azure OpenAI
 AZURE_CONFIG = {
-    "managedIdentityClientId": "",
-    "endpoint": "",
+
     "deploymentName": "gpt-4.1-mini",
     "maxTokens": 2500,
     "temperature": 0.7
@@ -69,45 +68,73 @@ def fetch_daily_market_data():
     script_dir = os.path.dirname(os.path.abspath(__file__))
     cache_file = os.path.join(script_dir, "last_successful_data_daily.txt")
 
-    # 1. 获取主要指数行情
+    # 1. 获取主要指数行情 (使用历史日线数据以确保通过日期匹配)
+    data_summary.append("【昨日市场行情】")
     try:
-        # 尝试使用东方财富接口 (stock_zh_index_spot_em)
-        # 注意：接口名称可能会随版本变化，如果失败请检查 akshare 文档
-        indices_df = ak.stock_zh_index_spot_em()
+        # 使用 ak.stock_zh_index_daily 获取历史数据
+        # sh000001: 上证指数, sz399001: 深证成指, sz399006: 创业板指
+        target_indices = {
+            'sh000001': '上证指数',
+            'sz399001': '深证成指',
+            'sz399006': '创业板指'
+        }
         
-        # 东方财富接口返回的代码通常是纯数字字符串
-        target_indices = {'000001': '上证指数', '399001': '深证成指', '399006': '创业板指'}
+        # 确定“昨日”的日期：即最近一个已收盘的交易日
+        # 策略：获取上证指数最近几行数据，取最新的一行作为参考日期（如果不算今日的话）
+        # 如果脚本是在交易日盘中运行，我们可能想要的是前一个交易日的数据
+        # 但通常晨讯是在第二天早上运行，所以想要的是 df.iloc[-1] (如果 API 还没更新今日数据)
+        # 或者 df.iloc[-2] (如果 API 已经更新了今日数据)
         
-        data_summary.append("【昨日市场行情】")
+        # 先获取一次上证指数来确定日期
+        ref_df = ak.stock_zh_index_daily(symbol='sh000001')
+        if ref_df.empty:
+            raise Exception("无法获取基准指数数据")
+            
+        # 简单的逻辑：如果最后一行日期是今天，且现在不是晚上，那可能是盘中数据，或者我们其实想要昨天的数据
+        # 既然是“晨讯”，通常是还没开盘或者刚开盘，所以我们想要的是“最近一个完整的交易日”
+        # 查看最后一行日期
+        last_date = pd.to_datetime(ref_df.iloc[-1]['date']).date()
+        current_date = datetime.datetime.now().date()
+        
+        target_row_idx = -1
+        if last_date == current_date:
+            # 如果API返回了今天的数据（说明今天已经开始交易或已结束），作为晨讯我们应该取昨天（即上一行）
+            target_row_idx = -2
+            
+        report_date = ref_df.iloc[target_row_idx]['date']
+        print(f"DEBUG: 选定的报告日期为 {report_date}")
+        
         for code, name in target_indices.items():
-            row = indices_df[indices_df['代码'] == code]
+            df = ak.stock_zh_index_daily(symbol=code)
+            # 找到对应日期的行
+            row = df[df['date'].astype(str) == str(report_date)]
+            
             if not row.empty:
-                latest = row.iloc[0]['最新价']
-                change_pct = row.iloc[0]['涨跌幅']
-                data_summary.append(f"{name}: {latest} ({change_pct}%)")
+                close_price = row.iloc[0]['close']
+                # 计算涨跌幅: (close - prev_close) / prev_close
+                # 需找到前一天的收盘价
+                row_idx = row.index[0]
+                if row_idx > 0:
+                    prev_close = df.iloc[row_idx - 1]['close']
+                    change_pct = (close_price - prev_close) / prev_close * 100
+                    
+                    # 格式化
+                    change_pct_str = f"{change_pct:.2f}"
+                    data_summary.append(f"{name}: {close_price:.2f} ({change_pct_str}%)")
+                else:
+                    data_summary.append(f"{name}: {close_price:.2f} (无法计算涨跌)")
+            else:
+                data_summary.append(f"{name}: 数据缺失")
+
         data_summary.append("")
-        print(f"DEBUG: 成功从东方财富获取指数数据: {data_summary}")
-    except AttributeError:
-        # 如果 stock_zh_index_spot_em 不存在，尝试 stock_zh_index_spot_sina
-        try:
-            indices_df = ak.stock_zh_index_spot_sina()
-            target_indices = {'sh000001': '上证指数', 'sz399001': '深证成指', 'sz399006': '创业板指'}
-            data_summary.append("【昨日市场行情 (Sina)】")
-            for code, name in target_indices.items():
-                row = indices_df[indices_df['代码'] == code]
-                if not row.empty:
-                    latest = row.iloc[0]['最新价']
-                    change_pct = row.iloc[0]['涨跌幅']
-                    data_summary.append(f"{name}: {latest} ({change_pct}%)")
-            data_summary.append("")
-        except Exception as e:
-             print(f"获取指数数据失败 (Sina): {e}")
+        print(f"DEBUG: 成功获取历史指数数据: {data_summary}")
+
     except Exception as e:
         print(f"获取指数数据失败: {e}")
 
-    # 1.2 获取两市成交额 (新增)
+    # 1.2 获取两市成交额
     try:
-        # 使用 daily_em 接口获取历史成交额以计算变化量
+        # 使用 daily_em 接口获取历史成交额
         sh_daily = ak.stock_zh_index_daily_em(symbol='sh000001')
         sz_daily = ak.stock_zh_index_daily_em(symbol='sz399001')
         
@@ -120,31 +147,41 @@ def fetch_daily_market_data():
             merged = pd.merge(sh_daily[['date', 'amount']], sz_daily[['date', 'amount']], on='date', suffixes=('_sh', '_sz'))
             merged['total_amount'] = merged['amount_sh'] + merged['amount_sz']
             
-            if len(merged) >= 2:
-                today_row = merged.iloc[-1]
-                prev_row = merged.iloc[-2]
+            # 同样使用 report_date 来定位数据
+            # 注意 report_date 是 string 或 date，需要匹配
+            target_row = merged[merged['date'].dt.date.astype(str) == str(report_date)]
+            
+            if not target_row.empty:
+                today_row = target_row.iloc[0]
+                # 获取前一交易日
+                # 在 merged 中找到 target_row 的前一行
+                # 这种方法依赖 merged 是按时间排序的（通常是）
+                target_idx = target_row.index[0]
                 
                 today_amount = today_row['total_amount']
-                prev_amount = prev_row['total_amount']
-                
-                change = today_amount - prev_amount
-                change_trillion = change / 1e12
                 today_trillion = today_amount / 1e12
                 
                 data_summary.append(f"【昨日成交额】")
                 data_summary.append(f"沪深两市总成交额: {today_trillion:.2f}万亿元")
                 
-                if change > 0:
-                    data_summary.append(f"较前一交易日放量: {abs(change_trillion):.2f}万亿元")
-                else:
-                    data_summary.append(f"较前一交易日缩量: {abs(change_trillion):.2f}万亿元")
+                if target_idx > 0:
+                    prev_row = merged.iloc[target_idx - 1]
+                    prev_amount = prev_row['total_amount']
+                    change = today_amount - prev_amount
+                    change_trillion = change / 1e12
                     
+                    if change > 0:
+                        data_summary.append(f"较前一交易日放量: {abs(change_trillion):.2f}万亿元")
+                    else:
+                        data_summary.append(f"较前一交易日缩量: {abs(change_trillion):.2f}万亿元")
+                
                 data_summary.append(f"- 上证指数成交额: {today_row['amount_sh']/1e12:.2f}万亿元")
                 data_summary.append(f"- 深证成指成交额: {today_row['amount_sz']/1e12:.2f}万亿元")
                 data_summary.append("")
-                print(f"DEBUG: 成功计算成交额: {today_trillion:.2f}万亿, 变化: {change_trillion:.2f}万亿")
+                print(f"DEBUG: 成功计算成交额: {today_trillion:.2f}万亿")
             else:
-                print("数据不足，无法计算成交额变化")
+                print(f"未找到日期 {report_date} 的成交额数据")
+            
     except Exception as e:
         print(f"计算成交额失败: {e}")
 
@@ -162,11 +199,11 @@ def fetch_daily_market_data():
             
             data_summary.append("领涨行业:")
             for _, row in top_ind.iterrows():
-                data_summary.append(f"- {row['板块名称']}: {row['涨跌幅']}% (领涨股: {row.get('领涨股票', 'N/A')})")
+                data_summary.append(f"- {row['板块名称']}: {row['涨跌幅']:.2f}% (领涨股: {row.get('领涨股票', 'N/A')})")
             
             data_summary.append("领跌行业:")
             for _, row in bottom_ind.iterrows():
-                data_summary.append(f"- {row['板块名称']}: {row['涨跌幅']}% (领跌股: {row.get('领涨股票', 'N/A')})") # 领涨股票 here means the representative stock
+                data_summary.append(f"- {row['板块名称']}: {row['涨跌幅']:.2f}% (领跌股: {row.get('领涨股票', 'N/A')})")
         
         # 概念板块
         con_df = ak.stock_board_concept_name_em()
@@ -176,7 +213,7 @@ def fetch_daily_market_data():
             
             data_summary.append("领涨概念:")
             for _, row in con_sorted.head(5).iterrows():
-                data_summary.append(f"- {row['板块名称']}: {row['涨跌幅']}%")
+                data_summary.append(f"- {row['板块名称']}: {row['涨跌幅']:.2f}%")
         
         data_summary.append("")
     except Exception as e:
@@ -368,11 +405,11 @@ def fetch_weekly_market_data():
             
             data_summary.append("领涨行业:")
             for _, row in top_ind.iterrows():
-                data_summary.append(f"- {row['板块名称']}: {row['涨跌幅']}%")
+                data_summary.append(f"- {row['板块名称']}: {row['涨跌幅']:.2f}%")
             
             data_summary.append("领跌行业:")
             for _, row in bottom_ind.iterrows():
-                data_summary.append(f"- {row['板块名称']}: {row['涨跌幅']}%")
+                data_summary.append(f"- {row['板块名称']}: {row['涨跌幅']:.2f}%")
         data_summary.append("")
     except Exception as e:
         print(f"获取板块数据失败: {e}")
