@@ -11,16 +11,29 @@ from azure.identity import DefaultAzureCredential
 AZURE_CONFIG = {
 
     "deploymentName": "gpt-4.1-mini",
-    "maxTokens": 2500,
+    "maxTokens": 3000,
     "temperature": 0.7
 }
+
+def get_azure_client():
+    try:
+        credential = DefaultAzureCredential(managed_identity_client_id=AZURE_CONFIG["managedIdentityClientId"])
+        token_provider = lambda: credential.get_token("https://cognitiveservices.azure.com/.default").token
+        return AzureOpenAI(
+            azure_endpoint=AZURE_CONFIG["endpoint"],
+            azure_ad_token_provider=token_provider,
+            api_version="2024-05-01-preview"
+        )
+    except Exception as e:
+        print(f"初始化 Azure Client 失败: {e}")
+        return None
 
 def get_date_str():
     return datetime.datetime.now().strftime("%Y年%m月%d日")
 
-def get_stock_reason(symbol, name):
+def get_stock_reason(symbol, name, industry=None, first_time=None, client=None):
     """
-    尝试获取个股涨停原因
+    获取个股相关新闻，并尝试利用 AI 总结涨停原因
     """
     try:
         # 获取最近的新闻
@@ -28,40 +41,102 @@ def get_stock_reason(symbol, name):
         if news_df.empty:
             return ""
         
-        # 关键词匹配
-        keywords = ["涨停", "连板", "异动", "大涨"]
-        reason_keywords = ["原因", "分析", "揭秘", "点评", "为何"]
-        
-        for _, row in news_df.head(20).iterrows():
-            title = row.get('新闻标题', '')
-            if not title:
-                continue
-                
-            # 1. 标题包含名字且包含涨停关键词
-            if name in title and any(k in title for k in keywords):
-                # 2. 如果包含原因关键词，优先返回
-                if any(rk in title for rk in reason_keywords):
-                    return f" (可能原因: {title})"
-                # 3. 或者是 "X连板" 这种强特征
-                if "连板" in title:
-                    return f" (相关资讯: {title})"
-            
-            # 4. 尝试匹配 "概念"
-            if name in title and "概念" in title:
-                 return f" (相关资讯: {title})"
+        related_news = []
+        news_contexts = [] # 用于发给 AI 的纯文本素材
 
-        # 如果没找到强匹配，尝试找第一条包含名字的新闻
-        for _, row in news_df.head(5).iterrows():
-             title = row.get('新闻标题', '')
-             if name in title:
-                 return f" (相关资讯: {title})"
-                 
+        # 遍历前 10 条新闻，筛选有效信息，保留 3 条展示
+        valid_count = 0 
+        
+        for _, row in news_df.head(10).iterrows():
+            title = str(row.get('新闻标题', '')).strip()
+            content = str(row.get('新闻内容', '')).strip()
+            
+            if not title or title == 'nan':
+                continue
+
+            summary = content[:100].replace('\n', ' ').strip()
+            
+            # 格式化展示用
+            if valid_count < 3:
+                news_item = f"    * 资讯: {title} (摘要: {summary}...)"
+                related_news.append(news_item)
+            
+            # 收集给 AI 分析用 (多收集一点也可以，比如前5条的标题)
+            news_contexts.append(f"- {title}: {summary}")
+            
+            valid_count += 1
+        
+        analysis_result = ""
+        # 如果有客户端且有新闻，调用 AI 进行总结
+        if client and news_contexts:
+            try:
+                # 构造一个小 Prompt
+                context_str = "\n".join(news_contexts[:5]) # 给 AI 看前5条
+                prompt = f"""请阅读以下关于股票【{name}】(代码{symbol})的近期新闻，分析并总结其涨停或异动的核心原因。
+                
+新闻列表：
+{context_str}
+
+要求：
+1. 重点指出具体利好事件、涉及的具体概念（如“低空经济”、“并购重组”等）。
+2. 逻辑清晰，一句话概括，不要有“经分析”等废话。
+3. 控制在 60 字以内，保留关键信息。"""
+
+                # 快速调用，temperature 低一点保证稳定
+                response = client.chat.completions.create(
+                    model=AZURE_CONFIG["deploymentName"],
+                    messages=[
+                        {"role": "system", "content": "你是一名A股短线分析师。"},
+                        {"role": "user", "content": prompt}
+                    ],
+                    temperature=0.3,
+                    max_tokens=200
+                )
+                reason_text = response.choices[0].message.content.strip()
+                # 去除可能的引号
+                reason_text = reason_text.replace('"', '').replace("'", "")
+                
+                # 补充板块和时间信息
+                meta_info = ""
+                if industry:
+                    meta_info += f"[板块:{industry}]"
+                if first_time:
+                    # 格式化时间 HHMMSS -> HH:MM:SS
+                    ft_str = str(first_time).strip()
+                    if len(ft_str) == 6 and ft_str.isdigit():
+                        ft_str = f"{ft_str[:2]}:{ft_str[2:4]}:{ft_str[4:]}"
+                    meta_info += f"[首封:{ft_str}]"
+                if meta_info:
+                    meta_info += " "
+                
+                analysis_result = f"    * AI分析: {meta_info}{reason_text}"
+            except Exception as ai_e:
+                # AI 分析失败不影响主流程，只打印日志
+                print(f"  [AI分析 {name} 失败]: {ai_e}")
+
+        # 组合返回结果
+        result_parts = []
+        if analysis_result:
+            result_parts.append("\n" + analysis_result)
+        if related_news:
+             result_parts.append("\n" + "\n".join(related_news))
+             
+        return "".join(result_parts)
+
     except Exception:
         pass
     return ""
 
 def fetch_daily_market_data():
     print("正在从 AkShare 获取实时市场数据 (日报模式)...")
+    
+    # 尝试初始化 AI 客户端用于个股分析
+    ai_client = get_azure_client()
+    if ai_client:
+        print("DEBUG: AI 辅助分析模块已就绪")
+    else:
+        print("DEBUG: AI 模块初始化失败，将仅展示原始新闻")
+
     data_summary = []
     
     # 定义缓存文件路径
@@ -270,26 +345,46 @@ def fetch_daily_market_data():
                 zt_pool_df['连板数'] = pd.to_numeric(zt_pool_df['连板数'], errors='coerce')
                 zt_pool_df = zt_pool_df.sort_values(by='连板数', ascending=False)
             
-            # 取所有涨停股 (限制前 15 个获取原因，避免太慢)
-            count = 0
+            # 限制 Prompt 中展示的股票总数，防止上下文溢出
+            # MAX_DISPLAY = 50 # 移除限制，展示全部
+            display_count = 0
+            
+            # 分析计数器
+            analyzed_count = 0
+            
             for _, row in zt_pool_df.iterrows():
+                lb = row.get('连板数')
+                # 判定是否为高标股 (>=2连板)
+                is_high_lb = isinstance(lb, (int, float)) and lb >= 2
+                
+                # 移除截断逻辑，确保展示所有股票
+                # if display_count >= MAX_DISPLAY and not is_high_lb:
+                #      remaining = len(zt_pool_df) - display_count
+                #      data_summary.append(f"... (剩余 {remaining} 只首板/低位涨停股略去)")
+                #      break
+
                 name = row.get('名称')
                 code = row.get('代码')
-                lb = row.get('连板数')
                 first_time = row.get('首次封板时间')
                 last_time = row.get('最后封板时间')
                 open_times = row.get('炸板次数')
                 industry = row.get('所属行业')
                 
                 reason_str = ""
-                # 只对前 10 名连板股获取原因，或者连板数 >= 2 的
-                if count < 10 or (isinstance(lb, (int, float)) and lb >= 2):
-                    print(f"DEBUG: 正在获取 {name} ({code}) 的涨停原因...")
-                    reason_str = get_stock_reason(code, name)
-                    count += 1
                 
-                # 构造描述给 AI 分析
+                # --- 核心分析逻辑 ---
+                # 1. 如果是 2连板及以上：必须分析
+                # 2. 如果是 首板：只有在"已分析总数"不足 10 个时才分析 (填补空位)
+                should_analyze = is_high_lb or (analyzed_count < 10)
+                
+                if should_analyze:
+                    print(f"DEBUG: 正在获取 {name} ({code}) 的涨停原因...")
+                    reason_str = get_stock_reason(code, name, industry=industry, first_time=first_time, client=ai_client)
+                    analyzed_count += 1
+                
+                # 构造描述
                 data_summary.append(f"- {name} ({lb}连板): 行业-{industry}, 首次封板-{first_time}, 最后封板-{last_time}, 炸板-{open_times}次{reason_str}")
+                display_count += 1
         else:
             data_summary.append("未获取到涨停数据。")
 
@@ -503,15 +598,10 @@ def read_news_input(file_path="news_input.txt"):
         return f.read()
 
 def generate_briefing(news_content, report_type="daily"):
-    # 使用 Managed Identity 获取凭证
-    credential = DefaultAzureCredential(managed_identity_client_id=AZURE_CONFIG["managedIdentityClientId"])
-    token_provider = lambda: credential.get_token("https://cognitiveservices.azure.com/.default").token
-
-    client = AzureOpenAI(
-        azure_endpoint=AZURE_CONFIG["endpoint"],
-        azure_ad_token_provider=token_provider,
-        api_version="2024-05-01-preview"
-    )
+    # 使用 Managed Identity 获取凭证 (复用 get_azure_client 的逻辑，或者直接调用)
+    client = get_azure_client()
+    if not client:
+        return "无法初始化 Azure OpenAI 客户端"
     
     date_str = get_date_str()
     date_str_header = datetime.datetime.now().strftime("%Y%m%d")
