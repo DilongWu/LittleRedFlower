@@ -4,20 +4,42 @@ import argparse
 import akshare as ak
 import pandas as pd
 import markdown
+import json
 from openai import AzureOpenAI
 from azure.identity import DefaultAzureCredential
 
 # 配置 Azure OpenAI
-AZURE_CONFIG = {
+def load_config():
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    config_path = os.path.join(script_dir, "config.json")
+    if os.path.exists(config_path):
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"配置文件读取失败: {e}")
+    return {}
 
-    "deploymentName": "gpt-4.1-mini",
-    "maxTokens": 3000,
-    "temperature": 0.7
-}
+AZURE_CONFIG = load_config()
+
+# 如果配置文件不存在或缺少关键字段，提供默认值（不含敏感信息）
+if not AZURE_CONFIG:
+    AZURE_CONFIG = {
+        "deploymentName": "gpt-4.1-mini",
+        "maxTokens": 3000,
+        "temperature": 0.7
+    }
 
 def get_azure_client():
     try:
-        credential = DefaultAzureCredential(managed_identity_client_id=AZURE_CONFIG["managedIdentityClientId"])
+        if "apiKey" in AZURE_CONFIG and AZURE_CONFIG["apiKey"]:
+            return AzureOpenAI(
+                azure_endpoint=AZURE_CONFIG["endpoint"],
+                api_key=AZURE_CONFIG["apiKey"],
+                api_version="2024-05-01-preview"
+            )
+
+        credential = DefaultAzureCredential(managed_identity_client_id=AZURE_CONFIG.get("managedIdentityClientId"))
         token_provider = lambda: credential.get_token("https://cognitiveservices.azure.com/.default").token
         return AzureOpenAI(
             azure_endpoint=AZURE_CONFIG["endpoint"],
