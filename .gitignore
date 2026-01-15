@@ -40,3 +40,12 @@ src/debug_*.py
 src/config.json
 src/last_successful_*.txt
 briefings/
+api/storage/
+storage/
+
+# Node
+node_modules/
+dist/
+npm-debug.log
+yarn-error.log
+web/dist/
