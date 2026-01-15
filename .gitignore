@@ -38,4 +38,5 @@ env/
 src/last_successful_data.txt
 src/debug_*.py
 src/config.json
+src/last_successful_*.txt
 briefings/
