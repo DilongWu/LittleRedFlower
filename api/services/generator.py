@@ -1,11 +1,21 @@
 import os
 import datetime
-import akshare as ak
+#import akshare as ak
 import pandas as pd
 import markdown
 import json
+import importlib
 from openai import AzureOpenAI
 from azure.identity import DefaultAzureCredential
+
+ak_module = None
+
+def ensure_ak():
+    """Lazy-load akshare to avoid startup failure when dependency missing."""
+    global ak_module
+    if ak_module is None:
+        ak_module = importlib.import_module("akshare")
+    return ak_module
 
 # 配置 Azure OpenAI
 def load_config():
@@ -94,7 +104,7 @@ def get_stock_reason(symbol, name, industry=None, first_time=None, client=None):
     获取个股相关新闻，并尝试利用 AI 总结涨停原因
     """
     try:
-        #import akshare as ak
+        import akshare as ak
         # 获取最近的新闻
         news_df = ak.stock_news_em(symbol=symbol)
         if news_df.empty:
@@ -188,6 +198,7 @@ def get_stock_reason(symbol, name, industry=None, first_time=None, client=None):
 
 def fetch_daily_market_data():
     print("正在从 AkShare 获取实时市场数据 (日报模式)...")
+    ak = ensure_ak()
     
     # 尝试初始化 AI 客户端用于个股分析
     ai_client = get_azure_client()
@@ -406,6 +417,7 @@ def fetch_daily_market_data():
 
 def fetch_weekly_market_data():
     print("正在获取周报数据 (过去5个交易日)...")
+    ak = ensure_ak()
     
     # 初始化 AI 客户端
     ai_client = get_azure_client()
