@@ -48,7 +48,7 @@ function App() {
     setLoginPass('');
   };
 
-  // Load available reports list on mount
+  // Load available reports list on mount or auth change
   useEffect(() => {
     if (!isAuthenticated) return;
     
@@ -60,7 +60,7 @@ function App() {
         selectLatestReport(data, activeTab);
       })
       .catch(err => console.error("Failed to list reports", err));
-  }, []);
+  }, [isAuthenticated]);
 
   // When tab changes, find relevant report
   useEffect(() => {

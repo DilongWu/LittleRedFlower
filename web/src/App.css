@@ -429,3 +429,38 @@ body {
   max-height: none !important; 
   overflow-y: visible !important;
 }
+
+/* Mobile Responsive Styles */
+@media screen and (max-width: 768px) {
+  .layout {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+    height: auto;
+    border-right: none;
+    border-bottom: 1px solid #e1e4e8;
+    padding: 10px;
+    box-sizing: border-box;
+  }
+
+  .main-content {
+    width: 100%;
+    padding: 15px;
+    box-sizing: border-box;
+  }
+
+  .report-card, .source-view-card {
+    width: 100%;
+    min-width: 0; 
+    padding: 20px;
+    box-sizing: border-box;
+  }
+
+  .view-tabs {
+    margin-left: 0;
+    margin-top: 10px;
+    flex-wrap: wrap; 
+  }
+}
