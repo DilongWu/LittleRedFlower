@@ -1,11 +1,16 @@
 import os
 import json
-from fastapi import FastAPI, HTTPException, Query, BackgroundTasks
+from fastapi import FastAPI, HTTPException, Query, BackgroundTasks, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
+from pydantic import BaseModel
 
 from api.scheduler import start_scheduler, shutdown_scheduler, STORAGE_DIR, job_generate_daily, job_generate_weekly
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -25,6 +30,17 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.post("/api/login")
+async def login(request: LoginRequest):
+    # Retrieve credentials from environment variables or use default
+    expected_username = os.getenv("ADMIN_USERNAME", "admin")
+    expected_password = os.getenv("ADMIN_PASSWORD", "littleredfloweradmin")
+    
+    if request.username == expected_username and request.password == expected_password:
+        return {"status": "success", "token": "valid_token_from_server"}
+    else:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
 
 @app.get("/api/reports")
 async def list_reports():

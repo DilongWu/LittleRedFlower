@@ -20,14 +20,24 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    if (loginUser === 'admin' && loginPass === 'littleredfloweradmin') {
-      localStorage.setItem('auth_token', 'valid_token');
-      setIsAuthenticated(true);
-      setLoginError('');
-    } else {
-      setLoginError('用户名或密码错误');
+    try {
+        const response = await fetch('/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: loginUser, password: loginPass })
+        });
+
+        if (response.ok) {
+            localStorage.setItem('auth_token', 'valid_token');
+            setIsAuthenticated(true);
+            setLoginError('');
+        } else {
+            setLoginError('用户名或密码错误');
+        }
+    } catch (err) {
+        setLoginError('登录服务不可用');
     }
   };
 
