@@ -11,7 +11,17 @@ logger = logging.getLogger(__name__)
 
 scheduler = AsyncIOScheduler()
 
-STORAGE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "storage")
+def _resolve_storage_dir():
+    """Prefer persisted storage on Azure; fall back to project storage when local."""
+    env_dir = os.getenv("STORAGE_DIR")
+    if env_dir:
+        return env_dir
+    azure_persist_dir = os.path.join("/home", "site", "wwwroot", "storage")
+    if os.path.isdir(os.path.join("/home", "site")):
+        return azure_persist_dir
+    return os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "storage")
+
+STORAGE_DIR = _resolve_storage_dir()
 
 def save_report(report_data):
     if not os.path.exists(STORAGE_DIR):
