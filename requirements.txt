@@ -6,4 +6,5 @@ pandas
 markdown
 fastapi
 uvicorn
+gunicorn
 apscheduler
