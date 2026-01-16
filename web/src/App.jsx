@@ -1,9 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import ReportViewer from './components/ReportViewer';
 import SourceDataViewer from './components/SourceDataViewer';
-import { Calendar, FileText, Activity } from 'lucide-react';
+import { Calendar, FileText, Activity, LogOut } from 'lucide-react';
+import './Login.css';
 
 function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    return localStorage.getItem('auth_token') === 'valid_token';
+  });
+  const [loginUser, setLoginUser] = useState('');
+  const [loginPass, setLoginPass] = useState('');
+  const [loginError, setLoginError] = useState('');
+
   const [activeTab, setActiveTab] = useState('daily');
   const [viewMode, setViewMode] = useState('report'); // 'report' or 'source'
   const [reports, setReports] = useState([]);
@@ -12,8 +20,28 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  const handleLogin = (e) => {
+    e.preventDefault();
+    if (loginUser === 'admin' && loginPass === 'littleredfloweradmin') {
+      localStorage.setItem('auth_token', 'valid_token');
+      setIsAuthenticated(true);
+      setLoginError('');
+    } else {
+      setLoginError('用户名或密码错误');
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('auth_token');
+    setIsAuthenticated(false);
+    setLoginUser('');
+    setLoginPass('');
+  };
+
   // Load available reports list on mount
   useEffect(() => {
+    if (!isAuthenticated) return;
+    
     fetch('/api/reports')
       .then(res => res.json())
       .then(data => {
@@ -72,6 +100,42 @@ function App() {
     .filter(r => r.type === activeTab)
     .map(r => r.date);
 
+  if (!isAuthenticated) {
+    return (
+      <div className="login-container">
+        <div className="login-card">
+          <div className="sidebar-header" style={{justifyContent: 'center', marginBottom: '20px'}}>
+             <Activity color="#d32f2f" size={32} />
+             <span style={{fontSize: '1.5rem'}}>睿组合小红花</span>
+          </div>
+          <h2 className="login-title">请登录</h2>
+          <form className="login-form" onSubmit={handleLogin}>
+            <div className="form-group">
+              <label>用户名</label>
+              <input 
+                type="text" 
+                value={loginUser} 
+                onChange={(e) => setLoginUser(e.target.value)}
+                placeholder="请输入用户名"
+              />
+            </div>
+            <div className="form-group">
+              <label>密码</label>
+              <input 
+                type="password" 
+                value={loginPass} 
+                onChange={(e) => setLoginPass(e.target.value)}
+                placeholder="请输入密码"
+              />
+            </div>
+            {loginError && <div className="error-message">{loginError}</div>}
+            <button type="submit" className="login-button">登录</button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="layout">
       <div className="sidebar">
@@ -97,6 +161,14 @@ function App() {
         </div>
 
         <div style={{ marginTop: 'auto', fontSize: '0.8rem', color: '#888' }}>
+          <div 
+             className="nav-item" 
+             onClick={handleLogout}
+             style={{color: '#d32f2f', marginBottom: '10px'}}
+          >
+            <LogOut size={18} />
+            <span>退出登录</span>
+          </div>
           <p>生成时间: 08:00 AM</p>
         </div>
       </div>
