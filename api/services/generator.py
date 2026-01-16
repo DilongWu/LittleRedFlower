@@ -1,6 +1,6 @@
 import os
 import datetime
-import akshare as ak
+# import akshare as ak
 import pandas as pd
 import markdown
 import json
@@ -71,6 +71,7 @@ def get_stock_reason(symbol, name, industry=None, first_time=None, client=None):
     获取个股相关新闻，并尝试利用 AI 总结涨停原因
     """
     try:
+        import akshare as ak
         # 获取最近的新闻
         news_df = ak.stock_news_em(symbol=symbol)
         if news_df.empty:
