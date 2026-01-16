@@ -1,6 +1,6 @@
 import os
 import datetime
-# import akshare as ak
+import akshare as ak
 import pandas as pd
 import markdown
 import json
@@ -9,24 +9,47 @@ from azure.identity import DefaultAzureCredential
 
 # 配置 Azure OpenAI
 def load_config():
-    # Assume config.json is in api/config.json
+    # 1) Prefer environment variables (App Service Application Settings)
+    env_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
+    if env_endpoint:
+        cfg = {
+            "endpoint": env_endpoint,
+            "apiKey": os.getenv("AZURE_OPENAI_API_KEY", ""),
+            "deploymentName": os.getenv("AZURE_OPENAI_DEPLOYMENT", ""),
+            "managedIdentityClientId": os.getenv("AZURE_OPENAI_MI_CLIENT_ID", ""),
+        }
+        # Optional numeric settings
+        max_tokens = os.getenv("AZURE_OPENAI_MAX_TOKENS")
+        temperature = os.getenv("AZURE_OPENAI_TEMPERATURE")
+        if max_tokens:
+            try:
+                cfg["maxTokens"] = int(max_tokens)
+            except ValueError:
+                pass
+        if temperature:
+            try:
+                cfg["temperature"] = float(temperature)
+            except ValueError:
+                pass
+        return cfg
+
+    # 2) Fallback: config.json in api/config.json
     current_dir = os.path.dirname(os.path.abspath(__file__)) # api/services
     api_dir = os.path.dirname(current_dir) # api
     config_path = os.path.join(api_dir, "config.json")
-    
     if os.path.exists(config_path):
         try:
             with open(config_path, "r", encoding="utf-8") as f:
                 return json.load(f)
         except Exception as e:
             print(f"配置文件读取失败: {e}")
-    # Fallback to try src/config.json location relative to project root if running locally
-    # Project root is api_dir/../
+
+    # 3) Fallback: src/config.json when running locally
     project_root = os.path.dirname(api_dir)
     src_config = os.path.join(project_root, "src", "config.json")
     if os.path.exists(src_config):
         try:
-             with open(src_config, "r", encoding="utf-8") as f:
+            with open(src_config, "r", encoding="utf-8") as f:
                 return json.load(f)
         except:
             pass
@@ -71,7 +94,7 @@ def get_stock_reason(symbol, name, industry=None, first_time=None, client=None):
     获取个股相关新闻，并尝试利用 AI 总结涨停原因
     """
     try:
-        import akshare as ak
+        #import akshare as ak
         # 获取最近的新闻
         news_df = ak.stock_news_em(symbol=symbol)
         if news_df.empty:
