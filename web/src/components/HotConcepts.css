@@ -1,0 +1,106 @@
+.concept-page {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.concept-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.concept-title {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #111827;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.concept-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.concept-date {
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+
+.concept-refresh {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.concept-refresh:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.concept-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.concept-card {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 12px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+}
+
+.concept-name {
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.concept-change {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.concept-change.up {
+  color: #ef4444;
+}
+
+.concept-change.down {
+  color: #16a34a;
+}
+
+.concept-lead {
+  margin-top: 6px;
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+.concept-empty {
+  margin-top: 30px;
+  text-align: center;
+  color: #9ca3af;
+}
+
+.concept-error {
+  margin-bottom: 10px;
+  color: #b91c1c;
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

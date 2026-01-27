@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tree:*)",
+      "Bash(python:*)",
+      "Bash(pip show:*)",
+      "Bash(pip index:*)",
+      "Bash(pip install:*)",
+      "Bash(curl:*)",
+      "Bash(npm run build:*)",
+      "Bash(npx vite build)",
+      "Bash(node -e:*)",
+      "Bash(npx vite build --debug)"
+    ]
+  }
+}

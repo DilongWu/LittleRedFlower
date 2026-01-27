@@ -1,0 +1,83 @@
+.risk-page {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.risk-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.risk-title {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #111827;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.risk-refresh {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.risk-refresh:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.risk-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.risk-item {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #374151;
+}
+
+.risk-item.low {
+  border-color: #d1fae5;
+  background: #ecfdf3;
+}
+
+.risk-item.medium {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.risk-item.high {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.risk-error {
+  margin-bottom: 10px;
+  color: #b91c1c;
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

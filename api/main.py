@@ -7,10 +7,23 @@ from contextlib import asynccontextmanager
 from pydantic import BaseModel
 
 from api.scheduler import start_scheduler, shutdown_scheduler, STORAGE_DIR, job_generate_daily, job_generate_weekly
+from api.services.market import get_market_radar_data
+from api.services.diagnosis import get_stock_diagnosis
+from api.services.index_overview import get_index_overview
+from api.services.fund_flow import get_fund_flow_rank
+from api.services.concepts import get_hot_concepts
+from api.services.data_source import get_data_source, set_data_source, test_data_source
 
 class LoginRequest(BaseModel):
     username: str
     password: str
+
+class StockDiagnosisRequest(BaseModel):
+    symbol: str
+    days: int = 60
+
+class DataSourceRequest(BaseModel):
+    source: str  # "eastmoney" or "sina"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -85,6 +98,74 @@ async def get_report(date: str, type: str = "daily"):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/sentiment")
+async def get_sentiment(date: str = Query(None, description="Date in YYYY-MM-DD format")):
+    """Get market sentiment data. Defaults to today's or latest available."""
+    target_date = date
+    
+    if not target_date:
+        # Default to today
+        import datetime
+        target_date = datetime.datetime.now().strftime("%Y-%m-%d")
+        
+    filename = f"{target_date}_sentiment.json"
+    file_path = os.path.join(STORAGE_DIR, filename)
+    
+    # If today's not found, try finding the latest one in the last 7 days
+    if not os.path.exists(file_path) and not date:
+        import datetime
+        for i in range(1, 8):
+            prev_date = (datetime.datetime.now() - datetime.timedelta(days=i)).strftime("%Y-%m-%d")
+            prev_path = os.path.join(STORAGE_DIR, f"{prev_date}_sentiment.json")
+            if os.path.exists(prev_path):
+                file_path = prev_path
+                break
+    
+    if not os.path.exists(file_path):
+        # Return a neutral placeholder if nothing found
+        return {
+            "score": 50, 
+            "label": "Neutral", 
+            "summary": "暂无情绪数据 (No sentiment data available yet).",
+            "timestamp": None,
+            "is_placeholder": True,
+            "history": []
+        }
+    
+    try:
+        current_data = {}
+        with open(file_path, "r", encoding="utf-8") as f:
+            current_data = json.load(f)
+            
+        # Enrich with history (last 7 days including today)
+        history = []
+        import datetime
+        # We need the base date of the current report to look back from
+        try:
+            base_date = datetime.datetime.strptime(current_data.get("date", target_date), "%Y-%m-%d")
+        except:
+            base_date = datetime.datetime.now()
+            
+        for i in range(6, -1, -1): # 6 days ago to 0 days ago
+            loop_date = (base_date - datetime.timedelta(days=i)).strftime("%Y-%m-%d")
+            loop_path = os.path.join(STORAGE_DIR, f"{loop_date}_sentiment.json")
+            if os.path.exists(loop_path):
+                try:
+                    with open(loop_path, "r", encoding="utf-8") as hf:
+                        h_data = json.load(hf)
+                        history.append({
+                            "date": loop_date,
+                            "score": h_data.get("score"),
+                            "label": h_data.get("label")
+                        })
+                except:
+                    pass
+        
+        current_data["history"] = history
+        return current_data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/api/trigger/daily")
 async def trigger_daily(background_tasks: BackgroundTasks):
     """Manual trigger for daily report (Background Task)"""
@@ -96,6 +177,64 @@ async def trigger_weekly(background_tasks: BackgroundTasks):
     """Manual trigger for weekly report (Background Task)"""
     background_tasks.add_task(job_generate_weekly)
     return {"status": "triggered", "message": "Weekly report generation started in background"}
+
+@app.get("/api/market/radar")
+async def get_market_radar():
+    """Get real-time market radar data (heatmaps, ladders)"""
+    return get_market_radar_data()
+
+@app.post("/api/stock/diagnosis")
+async def stock_diagnosis(request: StockDiagnosisRequest):
+    """Get basic stock diagnosis based on recent price/volume and fundamentals."""
+    result = get_stock_diagnosis(request.symbol, request.days)
+    if isinstance(result, dict) and result.get("error"):
+        raise HTTPException(status_code=400, detail=result["error"])
+    return result
+
+@app.get("/api/index/overview")
+async def index_overview():
+    """Get index K-line overview for major indexes."""
+    return get_index_overview()
+
+@app.get("/api/fund/flow")
+async def fund_flow_rank():
+    """Get fund flow ranking for individual stocks."""
+    result = get_fund_flow_rank()
+    if isinstance(result, dict) and result.get("error"):
+        raise HTTPException(status_code=400, detail=result["error"])
+    return result
+
+@app.get("/api/concept/hot")
+async def concept_hot():
+    """Get hot concept list ranked by change percent."""
+    result = get_hot_concepts()
+    if isinstance(result, dict) and result.get("error"):
+        raise HTTPException(status_code=400, detail=result["error"])
+    return result
+
+@app.get("/api/datasource")
+async def get_datasource():
+    """Get current data source configuration."""
+    source = get_data_source()
+    return {"source": source}
+
+@app.post("/api/datasource")
+async def set_datasource(request: DataSourceRequest):
+    """Set data source (eastmoney or sina)."""
+    if request.source not in ["eastmoney", "sina"]:
+        raise HTTPException(status_code=400, detail="Invalid data source. Use 'eastmoney' or 'sina'.")
+
+    success = set_data_source(request.source)
+    if success:
+        return {"status": "success", "source": request.source}
+    else:
+        raise HTTPException(status_code=500, detail="Failed to save data source configuration.")
+
+@app.get("/api/datasource/test")
+async def test_datasource(source: str = Query("sina", description="Data source to test")):
+    """Test if a data source is available."""
+    result = test_data_source(source)
+    return result
 
 # Serve Frontend Static Files (After API routes to avoid conflict)
 # In production, we assume 'web/dist' exists

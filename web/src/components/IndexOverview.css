@@ -1,0 +1,121 @@
+.index-page {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.index-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.index-title {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #111827;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.index-refresh {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.index-refresh:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.index-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.index-card {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 16px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+}
+
+.index-card-title {
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.index-symbol {
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+
+.index-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.index-price {
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.index-change {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.index-change.up {
+  color: #ef4444;
+}
+
+.index-change.down {
+  color: #16a34a;
+}
+
+.index-ma {
+  margin-top: 6px;
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+.index-empty {
+  margin-top: 30px;
+  text-align: center;
+  color: #9ca3af;
+}
+
+.index-error {
+  margin-bottom: 10px;
+  color: #b91c1c;
+}
+
+.sparkline {
+  display: block;
+  margin-top: 6px;
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

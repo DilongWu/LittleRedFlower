@@ -1,0 +1,191 @@
+.radar-page {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.radar-header {
+  margin-bottom: 24px;
+}
+
+.radar-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #111827;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.radar-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+}
+
+@media (min-width: 1024px) {
+  .radar-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* Common Card */
+.radar-card {
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  padding: 20px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  height: 100%;
+}
+
+.radar-card-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #374151;
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #f3f4f6;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Heatmap Styles */
+.heatmap-container {
+    width: 100%;
+}
+
+.radar-subtitle {
+  font-size: 0.9rem;
+  color: #6b7280;
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+
+.heatmap-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.heatmap-box {
+  border-radius: 6px;
+  padding: 10px;
+  text-align: center;
+  cursor: default;
+  transition: transform 0.1s;
+  min-height: 80px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.heatmap-box:hover {
+    transform: scale(1.02);
+}
+
+.box-name {
+    font-size: 0.85rem;
+    font-weight: 700;
+    line-height: 1.2;
+    margin-bottom: 4px;
+}
+
+.box-val {
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.box-lead {
+    font-size: 0.7rem;
+    opacity: 0.8;
+    margin-top: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+
+/* Ladder Styles */
+.ladder-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.ladder-level {
+    border-left: 2px solid #e5e7eb;
+    padding-left: 16px;
+    position: relative;
+    padding-bottom: 8px;
+}
+
+.ladder-level::before {
+    content: '';
+    position: absolute;
+    left: -6px;
+    top: 0;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #e5e7eb;
+}
+
+.ladder-level:first-child {
+    border-left-color: #ef4444;
+}
+.ladder-level:first-child::before {
+    background: #ef4444;
+}
+
+.level-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.level-badge {
+    background: #fef2f2;
+    color: #ef4444;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+.level-count {
+    font-size: 0.8rem;
+    color: #9ca3af;
+}
+
+.level-stocks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.stock-pill {
+    background: white;
+    border: 1px solid #e5e7eb;
+    padding: 6px 10px;
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    min-width: 80px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.stock-name {
+    font-weight: 600;
+    color: #111827;
+    font-size: 0.9rem;
+}
+
+.stock-industry {
+    font-size: 0.7rem;
+    color: #6b7280;
+}

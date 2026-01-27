@@ -28,6 +28,19 @@ def save_report(report_data):
         os.makedirs(STORAGE_DIR)
     
     date_str = report_data["date"]
+    
+    # Save Sentiment Data separately
+    if "sentiment" in report_data and report_data["sentiment"]:
+        sentiment_path = os.path.join(STORAGE_DIR, f"{date_str}_sentiment.json")
+        try:
+            with open(sentiment_path, "w", encoding="utf-8") as f:
+                json.dump(report_data["sentiment"], f, ensure_ascii=False, indent=2)
+            logger.info(f"Saved sentiment data to {sentiment_path}")
+        except Exception as e:
+            logger.error(f"Failed to save sentiment data: {e}")
+
+    # Determine filename based on report type
+
     report_type = report_data["type"]
     filename = f"{date_str}_{report_type}.json"
     

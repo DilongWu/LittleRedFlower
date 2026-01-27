@@ -674,6 +674,47 @@ def run_generate_ai_report(news_content, report_type="daily"):
     except Exception as e:
         return f"生成失败: {str(e)}"
 
+def generate_market_sentiment(news_content):
+    client = get_azure_client()
+    if not client:
+        return None
+    
+    system_prompt = """
+    You are a financial analyst AI. Analyze the provided market data and news.
+    Determine the overall market sentiment score from 0 (Extreme Fear) to 100 (Extreme Greed).
+
+    0-20: Extreme Fear (Panic selling, crash)
+    21-40: Fear (Bearish, adjusting)
+    41-60: Neutral (Sideways, waiting)
+    61-80: Greed (Bullish, rally)
+    81-100: Extreme Greed (Bubble, overheating)
+    
+    Output strictly in JSON format:
+    {
+      "score": <int 0-100>,
+      "label": "<string>",
+      "summary": "<string: A 1-sentence summary of the market mood>",
+      "timestamp": "<ISO 8601 timestamp>"
+    }
+    """
+    
+    try:
+        response = client.chat.completions.create(
+            model=AZURE_CONFIG["deploymentName"],
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"Market Data:\n{news_content[:15000]}"}
+            ],
+            temperature=0.3,
+            max_tokens=200,
+            response_format={ "type": "json_object" }
+        )
+        content = response.choices[0].message.content
+        return json.loads(content)
+    except Exception as e:
+        print(f"Sentiment generation failed: {e}")
+        return None
+
 def generate_full_report(report_type="daily"):
     """
     Main entry point for report generation
@@ -695,6 +736,14 @@ def generate_full_report(report_type="daily"):
     # 2. Generate AI Content
     markdown_content = run_generate_ai_report(fetched_data, report_type)
     
+    # 2.5 Generate Sentiment
+    sentiment_data = None
+    if report_type == "daily":
+        print("DEBUG: Generating Market Sentiment...")
+        sentiment_data = generate_market_sentiment(fetched_data)
+        if sentiment_data:
+            sentiment_data["date"] = datetime.datetime.now().strftime("%Y-%m-%d")
+
     # 3. Add Source Data
     # Deprecated: Source data is now handled by the frontend in a separate tab
     full_markdown = markdown_content
@@ -711,7 +760,8 @@ def generate_full_report(report_type="daily"):
         "content_markdown": full_markdown,
         "content_html": html_body,
         "raw_data": fetched_data,
-        "created_at": datetime.datetime.now().isoformat()
+        "created_at": datetime.datetime.now().isoformat(),
+        "sentiment": sentiment_data
     }
     
     return result
