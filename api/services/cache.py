@@ -10,10 +10,10 @@ _CACHE: Dict[str, Dict[str, Any]] = {}
 
 # Default cache durations (in seconds)
 CACHE_DURATIONS = {
-    "index_overview": 300,      # 5 minutes
-    "market_radar": 300,        # 5 minutes
-    "fund_flow": 300,           # 5 minutes
-    "hot_concepts": 300,        # 5 minutes
+    "index_overview": 600,      # 10 minutes
+    "market_radar": 600,        # 10 minutes
+    "fund_flow": 600,           # 10 minutes
+    "hot_concepts": 600,        # 10 minutes
     "stock_diagnosis": 60,      # 1 minute (user-specific)
     "stock_list": 3600,         # 1 hour (rarely changes)
 }
