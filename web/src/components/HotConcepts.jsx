@@ -1,22 +1,42 @@
 import React, { useEffect, useState } from 'react';
 import { Flame, RefreshCw } from 'lucide-react';
+import { fetchWithCache, API_ENDPOINTS } from '../services/dataCache';
 import './HotConcepts.css';
+
+// Skeleton loading cards
+const SkeletonCards = () => (
+  <>
+    {[1, 2, 3, 4, 5, 6].map(i => (
+      <div key={i} className="concept-card skeleton-concept-card">
+        <div className="skeleton-concept-line name"></div>
+        <div className="skeleton-concept-line change"></div>
+        <div className="skeleton-concept-line lead"></div>
+      </div>
+    ))}
+  </>
+);
 
 const HotConcepts = () => {
   const [data, setData] = useState([]);
   const [date, setDate] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const fetchData = async () => {
+  const fetchData = async (forceRefresh = false) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/concept/hot');
-      if (!res.ok) throw new Error('无法获取题材数据');
-      const json = await res.json();
-      setData(json.data || []);
-      setDate(json.date || '');
+      if (forceRefresh) {
+        const res = await fetch(API_ENDPOINTS.HOT_CONCEPTS);
+        if (!res.ok) throw new Error('无法获取题材数据');
+        const json = await res.json();
+        setData(json.data || []);
+        setDate(json.date || '');
+      } else {
+        const json = await fetchWithCache(API_ENDPOINTS.HOT_CONCEPTS);
+        setData(json.data || []);
+        setDate(json.date || '');
+      }
     } catch (e) {
       setError(e.message);
       setData([]);
@@ -38,7 +58,7 @@ const HotConcepts = () => {
         </div>
         <div className="concept-actions">
           <span className="concept-date">{date ? `数据日期: ${date}` : ''}</span>
-          <button onClick={fetchData} className="concept-refresh" disabled={loading}>
+          <button onClick={() => fetchData(true)} className="concept-refresh" disabled={loading}>
             <RefreshCw size={16} className={loading ? 'spin' : ''} />
             刷新
           </button>
@@ -47,9 +67,11 @@ const HotConcepts = () => {
 
       {error ? <div className="concept-error">{error}</div> : null}
 
-      {data.length > 0 ? (
-        <div className="concept-grid">
-          {data.map(item => (
+      <div className="concept-grid">
+        {loading && data.length === 0 ? (
+          <SkeletonCards />
+        ) : data.length > 0 ? (
+          data.map(item => (
             <div key={item.name} className="concept-card">
               <div className="concept-name">{item.name}</div>
               <div className={item.change >= 0 ? 'concept-change up' : 'concept-change down'}>
@@ -57,11 +79,11 @@ const HotConcepts = () => {
               </div>
               <div className="concept-lead">领涨: {item.lead || '-'}</div>
             </div>
-          ))}
-        </div>
-      ) : (
-        <div className="concept-empty">暂无题材数据</div>
-      )}
+          ))
+        ) : (
+          <div className="concept-empty">暂无题材数据</div>
+        )}
+      </div>
     </div>
   );
 };

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { TrendingUp, RefreshCw } from 'lucide-react';
+import { fetchWithCache, API_ENDPOINTS } from '../services/dataCache';
 import './IndexOverview.css';
 
 const Sparkline = ({ series, up }) => {
@@ -35,19 +36,34 @@ const Sparkline = ({ series, up }) => {
   );
 };
 
+// Skeleton loading card
+const SkeletonCard = () => (
+  <div className="index-card skeleton-index-card">
+    <div className="skeleton-line title"></div>
+    <div className="skeleton-line price"></div>
+    <div className="skeleton-line chart"></div>
+    <div className="skeleton-line ma"></div>
+  </div>
+);
+
 const IndexOverview = () => {
   const [data, setData] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const fetchData = async () => {
+  const fetchData = async (forceRefresh = false) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/index/overview');
-      if (!res.ok) throw new Error('无法获取指数数据');
-      const json = await res.json();
-      setData(json || []);
+      if (forceRefresh) {
+        const res = await fetch(API_ENDPOINTS.INDEX_OVERVIEW);
+        if (!res.ok) throw new Error('无法获取指数数据');
+        const json = await res.json();
+        setData(json || []);
+      } else {
+        const json = await fetchWithCache(API_ENDPOINTS.INDEX_OVERVIEW);
+        setData(json || []);
+      }
     } catch (e) {
       setError(e.message);
       setData([]);
@@ -67,7 +83,7 @@ const IndexOverview = () => {
           <TrendingUp size={22} className="text-red-600" />
           指数K线速览
         </div>
-        <button onClick={fetchData} className="index-refresh" disabled={loading}>
+        <button onClick={() => fetchData(true)} className="index-refresh" disabled={loading}>
           <RefreshCw size={16} className={loading ? 'spin' : ''} />
           刷新
         </button>
@@ -77,7 +93,14 @@ const IndexOverview = () => {
         <div className="index-error">{error}</div>
       ) : null}
 
-      {data.length > 0 ? (
+      {loading && data.length === 0 ? (
+        <div className="index-grid">
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
+        </div>
+      ) : data.length > 0 ? (
         <div className="index-grid">
           {data.map(item => (
             <div key={item.symbol} className="index-card">

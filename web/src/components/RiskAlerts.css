@@ -81,3 +81,54 @@
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
+
+/* Skeleton Loading Styles */
+.skeleton-risk-item {
+  background: #f9fafb !important;
+  border-color: #e5e7eb !important;
+}
+
+.skeleton-risk-icon {
+  width: 16px;
+  height: 16px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+  border-radius: 4px;
+}
+
+.skeleton-risk-text {
+  flex: 1;
+  height: 16px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+  border-radius: 4px;
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Mobile Responsive */
+@media screen and (max-width: 768px) {
+  .risk-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .risk-title {
+    font-size: 1.2rem;
+  }
+
+  .risk-item {
+    padding: 10px;
+    font-size: 0.9rem;
+  }
+}

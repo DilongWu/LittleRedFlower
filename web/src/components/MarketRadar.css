@@ -189,3 +189,75 @@
     font-size: 0.7rem;
     color: #6b7280;
 }
+
+/* Skeleton Loading Styles */
+.skeleton-card {
+  min-height: 400px;
+}
+
+.skeleton-title {
+  width: 60%;
+  height: 24px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+  border-radius: 4px;
+  margin-bottom: 20px;
+}
+
+.skeleton-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.skeleton-row {
+  width: 100%;
+  height: 60px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+  border-radius: 8px;
+}
+
+.skeleton-row.short {
+  width: 70%;
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Mobile Responsive */
+@media screen and (max-width: 768px) {
+  .radar-title {
+    font-size: 1.2rem;
+    flex-wrap: wrap;
+  }
+
+  .radar-card {
+    padding: 15px;
+  }
+
+  .heatmap-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .heatmap-box {
+    min-height: 60px;
+    padding: 8px;
+  }
+
+  .box-name {
+    font-size: 0.75rem;
+  }
+
+  .box-val {
+    font-size: 0.8rem;
+  }
+}

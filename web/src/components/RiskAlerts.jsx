@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { AlertTriangle, RefreshCw, ShieldAlert } from 'lucide-react';
+import { fetchWithCache, API_ENDPOINTS } from '../services/dataCache';
 import './RiskAlerts.css';
 
 const buildAlerts = (sentiment, indexes) => {
@@ -33,26 +34,48 @@ const buildAlerts = (sentiment, indexes) => {
   return alerts;
 };
 
+// Skeleton loading
+const SkeletonAlerts = () => (
+  <>
+    {[1, 2, 3].map(i => (
+      <div key={i} className="risk-item skeleton-risk-item">
+        <div className="skeleton-risk-icon"></div>
+        <div className="skeleton-risk-text"></div>
+      </div>
+    ))}
+  </>
+);
+
 const RiskAlerts = () => {
   const [alerts, setAlerts] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const fetchData = async () => {
+  const fetchData = async (forceRefresh = false) => {
     setLoading(true);
     setError(null);
     try {
-      const [sentimentRes, indexRes] = await Promise.all([
-        fetch('/api/sentiment'),
-        fetch('/api/index/overview')
-      ]);
+      let sentiment, indexes;
 
-      if (!sentimentRes.ok || !indexRes.ok) {
-        throw new Error('无法获取风险数据');
+      if (forceRefresh) {
+        const [sentimentRes, indexRes] = await Promise.all([
+          fetch(API_ENDPOINTS.SENTIMENT),
+          fetch(API_ENDPOINTS.INDEX_OVERVIEW)
+        ]);
+
+        if (!sentimentRes.ok || !indexRes.ok) {
+          throw new Error('无法获取风险数据');
+        }
+
+        sentiment = await sentimentRes.json();
+        indexes = await indexRes.json();
+      } else {
+        [sentiment, indexes] = await Promise.all([
+          fetchWithCache(API_ENDPOINTS.SENTIMENT),
+          fetchWithCache(API_ENDPOINTS.INDEX_OVERVIEW)
+        ]);
       }
 
-      const sentiment = await sentimentRes.json();
-      const indexes = await indexRes.json();
       setAlerts(buildAlerts(sentiment, indexes));
     } catch (e) {
       setError(e.message);
@@ -73,7 +96,7 @@ const RiskAlerts = () => {
           <ShieldAlert size={22} className="text-yellow-600" />
           风险预警
         </div>
-        <button onClick={fetchData} className="risk-refresh" disabled={loading}>
+        <button onClick={() => fetchData(true)} className="risk-refresh" disabled={loading}>
           <RefreshCw size={16} className={loading ? 'spin' : ''} />
           刷新
         </button>
@@ -82,12 +105,16 @@ const RiskAlerts = () => {
       {error ? <div className="risk-error">{error}</div> : null}
 
       <div className="risk-list">
-        {alerts.map((a, idx) => (
-          <div key={`${a.text}-${idx}`} className={`risk-item ${a.level}`}>
-            <AlertTriangle size={16} />
-            <span>{a.text}</span>
-          </div>
-        ))}
+        {loading && alerts.length === 0 ? (
+          <SkeletonAlerts />
+        ) : (
+          alerts.map((a, idx) => (
+            <div key={`${a.text}-${idx}`} className={`risk-item ${a.level}`}>
+              <AlertTriangle size={16} />
+              <span>{a.text}</span>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );

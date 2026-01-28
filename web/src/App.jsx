@@ -9,6 +9,7 @@ import FundFlowRank from './components/FundFlowRank';
 import HotConcepts from './components/HotConcepts';
 import RiskAlerts from './components/RiskAlerts';
 import DataSourceSelector from './components/DataSourceSelector';
+import { prefetchDashboardData } from './services/dataCache';
 import { Calendar, FileText, Activity, LogOut, RefreshCw, Play, BarChart, Radar, Stethoscope, LineChart, Waves, Flame, ShieldAlert } from 'lucide-react';
 import './Login.css';
 
@@ -88,7 +89,10 @@ function App() {
   // Load available reports list on mount or auth change
   useEffect(() => {
     if (!isAuthenticated) return;
-    
+
+    // Prefetch all dashboard data in background for faster tab switching
+    prefetchDashboardData();
+
     // Fetch reports
     fetch('/api/reports')
       .then(res => res.json())
@@ -97,7 +101,7 @@ function App() {
         selectLatestReport(data, activeTab);
       })
       .catch(err => console.error("Failed to list reports", err));
-      
+
     // Fetch Sentiment
     setSentimentLoading(true);
     fetch('/api/sentiment')
