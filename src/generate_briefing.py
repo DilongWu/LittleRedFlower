@@ -47,7 +47,7 @@ def get_azure_client():
             api_version="2024-05-01-preview"
         )
     except Exception as e:
-        print(f"初始化 Azure Client 失败: {e}")
+        print(f"初始化 Azure Client 失败了: {e}")
         return None
 
 def get_date_str():
