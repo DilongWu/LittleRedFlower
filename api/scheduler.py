@@ -26,9 +26,9 @@ STORAGE_DIR = _resolve_storage_dir()
 def save_report(report_data):
     if not os.path.exists(STORAGE_DIR):
         os.makedirs(STORAGE_DIR)
-    
+
     date_str = report_data["date"]
-    
+
     # Save Sentiment Data separately
     if "sentiment" in report_data and report_data["sentiment"]:
         sentiment_path = os.path.join(STORAGE_DIR, f"{date_str}_sentiment.json")
@@ -43,7 +43,7 @@ def save_report(report_data):
 
     report_type = report_data["type"]
     filename = f"{date_str}_{report_type}.json"
-    
+
     file_path = os.path.join(STORAGE_DIR, filename)
     with open(file_path, "w", encoding="utf-8") as f:
         json.dump(report_data, f, ensure_ascii=False, indent=2)
@@ -53,7 +53,7 @@ async def job_generate_daily():
     logger.info("Starting Daily Report Generation Job...")
     try:
         # Run in executor to avoid blocking main thread as generator is sync
-        # But wait, generator calls network which blocks. 
+        # But wait, generator calls network which blocks.
         # Ideally generator should be async or run in thread pool.
         # Akshare and OpenAI sync client are blocking.
         import asyncio
@@ -75,6 +75,46 @@ async def job_generate_weekly():
     except Exception as e:
         logger.error(f"Weekly Report Generation Failed: {e}")
 
+
+async def job_warmup_cache():
+    """
+    Pre-warm cache before market opens.
+    This ensures the first user gets fast response times.
+    Runs at 9:25 AM on trading days (Mon-Fri).
+    """
+    logger.info("Starting cache warmup job...")
+    try:
+        import asyncio
+        from api.services.market import get_market_radar_data
+        from api.services.index_overview import get_index_overview
+        from api.services.fund_flow import get_fund_flow_rank
+        from api.services.concepts import get_hot_concepts
+
+        loop = asyncio.get_running_loop()
+
+        # Run all data fetching functions concurrently
+        tasks = [
+            loop.run_in_executor(None, get_market_radar_data),
+            loop.run_in_executor(None, get_index_overview),
+            loop.run_in_executor(None, get_fund_flow_rank),
+            loop.run_in_executor(None, get_hot_concepts),
+        ]
+
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Log results
+        names = ["market_radar", "index_overview", "fund_flow", "hot_concepts"]
+        for name, result in zip(names, results):
+            if isinstance(result, Exception):
+                logger.warning(f"Cache warmup failed for {name}: {result}")
+            else:
+                logger.info(f"Cache warmup success: {name}")
+
+        logger.info("Cache warmup completed.")
+    except Exception as e:
+        logger.error(f"Cache warmup job failed: {e}")
+
+
 def start_scheduler():
     # 每天早上 08:00 生成日报 (周二到周六，对应周一到周五的交易日)
     # Cron: minute=0, hour=8, day_of_week='tue-sat'
@@ -84,7 +124,7 @@ def start_scheduler():
         id="daily_briefing",
         replace_existing=True
     )
-    
+
     # 每周六早上 09:00 生成周报
     scheduler.add_job(
         job_generate_weekly,
@@ -92,9 +132,26 @@ def start_scheduler():
         id="weekly_briefing",
         replace_existing=True
     )
-    
+
+    # 每天 09:25 预热缓存（开盘前5分钟，周一到周五）
+    # This ensures data is cached before market opens at 9:30
+    scheduler.add_job(
+        job_warmup_cache,
+        CronTrigger(hour=9, minute=25, day_of_week='mon-fri'),
+        id="cache_warmup",
+        replace_existing=True
+    )
+
+    # 每天 13:00 再次预热（午盘开盘前）
+    scheduler.add_job(
+        job_warmup_cache,
+        CronTrigger(hour=13, minute=0, day_of_week='mon-fri'),
+        id="cache_warmup_afternoon",
+        replace_existing=True
+    )
+
     scheduler.start()
-    logger.info("Scheduler started.")
+    logger.info("Scheduler started with daily/weekly reports and cache warmup jobs.")
 
 def shutdown_scheduler():
     scheduler.shutdown()

@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 from pydantic import BaseModel
 
-from api.scheduler import start_scheduler, shutdown_scheduler, STORAGE_DIR, job_generate_daily, job_generate_weekly
+from api.scheduler import start_scheduler, shutdown_scheduler, STORAGE_DIR, job_generate_daily, job_generate_weekly, job_warmup_cache
 from api.services.market import get_market_radar_data
 from api.services.diagnosis import get_stock_diagnosis
 from api.services.index_overview import get_index_overview
@@ -185,6 +185,12 @@ async def trigger_weekly(background_tasks: BackgroundTasks):
     """Manual trigger for weekly report (Background Task)"""
     background_tasks.add_task(job_generate_weekly)
     return {"status": "triggered", "message": "Weekly report generation started in background"}
+
+@app.post("/api/trigger/warmup")
+async def trigger_warmup(background_tasks: BackgroundTasks):
+    """Manual trigger for cache warmup (Background Task)"""
+    background_tasks.add_task(job_warmup_cache)
+    return {"status": "triggered", "message": "Cache warmup started in background"}
 
 @app.get("/api/market/radar")
 async def get_market_radar():
