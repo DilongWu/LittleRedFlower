@@ -55,34 +55,49 @@ def reset_pro_api():
 
 def get_index_daily(symbol: str, days: int = 60) -> Optional[pd.DataFrame]:
     """
-    Get index daily data. Falls back to AkShare if Tushare fails.
+    Get index daily data using Tushare index_daily API.
 
     Args:
         symbol: Index code like 'sh000001', 'sz399001'
         days: Number of days of data
 
     Returns:
-        DataFrame with columns matching AkShare format
+        DataFrame with columns matching AkShare format for compatibility
     """
     try:
-        # Use AkShare as the backend (more reliable)
-        import akshare as ak
+        pro = get_pro_api()
 
-        df = ak.stock_zh_index_daily_em(symbol=symbol)
+        # Convert AkShare style symbol to Tushare style
+        # sh000001 -> 000001.SH, sz399001 -> 399001.SZ
+        if symbol.startswith('sh'):
+            ts_code = symbol[2:] + '.SH'
+        elif symbol.startswith('sz'):
+            ts_code = symbol[2:] + '.SZ'
+        else:
+            ts_code = symbol
+
+        # Calculate date range
+        end_date = datetime.datetime.now().strftime('%Y%m%d')
+        start_date = (datetime.datetime.now() - datetime.timedelta(days=days + 30)).strftime('%Y%m%d')
+
+        df = pro.index_daily(ts_code=ts_code, start_date=start_date, end_date=end_date)
+
         if df is not None and not df.empty:
-            df = df.tail(days).copy()
-            # Rename columns to standard format if needed
+            # Sort by date ascending (Tushare returns descending)
+            df = df.sort_values('trade_date', ascending=True).tail(days).copy()
+
+            # Rename columns to match AkShare format for compatibility
             col_map = {
-                'date': '日期',
+                'trade_date': '日期',
                 'open': '开盘',
                 'high': '最高',
                 'low': '最低',
                 'close': '收盘',
-                'volume': '成交量'
+                'vol': '成交量',
+                'amount': '成交额',
+                'pct_chg': '涨跌幅'
             }
-            for old_col, new_col in col_map.items():
-                if old_col in df.columns and new_col not in df.columns:
-                    df = df.rename(columns={old_col: new_col})
+            df = df.rename(columns=col_map)
             return df
 
     except Exception as e:
