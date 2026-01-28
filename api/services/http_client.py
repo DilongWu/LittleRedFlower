@@ -18,7 +18,7 @@ _SESSION = None
 _EXECUTOR: Optional[ThreadPoolExecutor] = None
 
 # Rate limiter: minimum interval between requests (in seconds)
-_MIN_REQUEST_INTERVAL = 0.3  # 300ms between requests
+_MIN_REQUEST_INTERVAL = 0.5  # 500ms between requests (increased for stability)
 _last_request_time = 0.0
 _rate_lock = threading.Lock()
 
@@ -120,8 +120,8 @@ def fetch_with_retry(func, *args, max_retries=3, timeout=30, **kwargs):
             is_retryable = any(x in error_msg for x in retryable_errors)
 
             if is_retryable and attempt < max_retries:
-                # Exponential backoff: 2s, 4s, 8s (capped at 10s)
-                wait_time = min(2 ** (attempt + 1), 10)
+                # Exponential backoff: 3s, 6s, 12s (longer waits for overseas servers)
+                wait_time = min(3 ** (attempt + 1), 15)
                 logging.warning(f"Retry {attempt + 1}/{max_retries} after {wait_time}s: {str(e)[:80]}")
                 time.sleep(wait_time)
                 continue

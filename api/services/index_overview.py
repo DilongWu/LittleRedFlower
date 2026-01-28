@@ -1,4 +1,5 @@
 import datetime
+import time
 import pandas as pd
 import math
 
@@ -131,6 +132,10 @@ def get_index_overview(days: int = 60, points: int = 30):
     actual_source = None
 
     for name, symbol in index_map.items():
+        # Add delay between index requests to avoid rate limiting
+        if results:  # Not the first request
+            time.sleep(1.0)  # 1 second delay between each index
+
         # Build fetch functions for each source
         fetch_funcs = {
             "tushare": lambda s=symbol: _fetch_index_tushare(s, days),

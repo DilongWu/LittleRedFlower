@@ -16,7 +16,9 @@ def _resolve_storage_dir():
     env_dir = os.getenv("STORAGE_DIR")
     if env_dir:
         return env_dir
-    azure_persist_dir = os.path.join("/home", "site", "wwwroot", "storage")
+    # Use /home/data/ for Azure persistence (survives deployments)
+    # /home/site/wwwroot/ gets overwritten on each deployment
+    azure_persist_dir = os.path.join("/home", "data", "storage")
     if os.path.isdir(os.path.join("/home", "site")):
         return azure_persist_dir
     return os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "storage")
