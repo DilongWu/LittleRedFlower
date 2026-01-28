@@ -35,22 +35,12 @@ def get_stock_diagnosis(symbol: str, days: int = 60):
         pass
 
     if hist_df is None or hist_df.empty:
-        # Return Mock Data for Diagnosis
+        # Return empty data instead of mock data
         return {
             "symbol": symbol,
             "date": datetime.datetime.now().strftime("%Y-%m-%d"),
-            "price": 10.50,
-            "change_pct": 1.25,
-            "ma5": 10.40,
-            "ma10": 10.30,
-            "ma20": 10.20,
-            "vol_ratio": 1.5,
-            "trend": "多头",
-            "basic": {
-                "股票简称": "示例股票",
-                "行业": "示例行业",
-                "上市时间": "2020-01-01"
-            },
+            "error": "无法获取股票数据，请检查股票代码是否正确",
+            "data_source": "error"
         }
 
     # Ensure proper columns

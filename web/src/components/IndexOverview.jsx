@@ -5,14 +5,18 @@ import './IndexOverview.css';
 const Sparkline = ({ series, up }) => {
   const points = useMemo(() => {
     if (!series || series.length === 0) return '';
-    const max = Math.max(...series);
-    const min = Math.min(...series);
+    // Filter out null/undefined/NaN values
+    const validSeries = series.filter(v => v != null && !isNaN(v));
+    if (validSeries.length === 0) return '';
+
+    const max = Math.max(...validSeries);
+    const min = Math.min(...validSeries);
     const range = max - min || 1;
     const width = 160;
     const height = 40;
-    return series
+    return validSeries
       .map((v, i) => {
-        const x = (i / (series.length - 1)) * width;
+        const x = (i / (validSeries.length - 1)) * width;
         const y = height - ((v - min) / range) * height;
         return `${x},${y}`;
       })
@@ -82,9 +86,9 @@ const IndexOverview = () => {
                 <span className="index-symbol">{item.symbol}</span>
               </div>
               <div className="index-row">
-                <div className="index-price">{item.close}</div>
+                <div className="index-price">{item.close ?? '-'}</div>
                 <div className={item.change_pct >= 0 ? 'index-change up' : 'index-change down'}>
-                  {item.change_pct >= 0 ? '+' : ''}{item.change_pct}%
+                  {item.change_pct != null ? `${item.change_pct >= 0 ? '+' : ''}${item.change_pct}%` : '-'}
                 </div>
               </div>
               <Sparkline series={item.series} up={item.change_pct >= 0} />

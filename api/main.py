@@ -1,5 +1,7 @@
 import os
 import json
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 from fastapi import FastAPI, HTTPException, Query, BackgroundTasks, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -12,7 +14,8 @@ from api.services.diagnosis import get_stock_diagnosis
 from api.services.index_overview import get_index_overview
 from api.services.fund_flow import get_fund_flow_rank
 from api.services.concepts import get_hot_concepts
-from api.services.data_source import get_data_source, set_data_source, test_data_source
+from api.services.data_source import get_data_source, set_data_source, test_data_source, get_tushare_token, set_tushare_token, VALID_DATA_SOURCES
+from api.services.http_client import close_session
 
 class LoginRequest(BaseModel):
     username: str
@@ -23,7 +26,11 @@ class StockDiagnosisRequest(BaseModel):
     days: int = 60
 
 class DataSourceRequest(BaseModel):
-    source: str  # "eastmoney" or "sina"
+    source: str  # "eastmoney", "sina", or "tushare"
+
+
+class TushareTokenRequest(BaseModel):
+    token: str
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -32,6 +39,7 @@ async def lifespan(app: FastAPI):
     yield
     # Shutdown
     shutdown_scheduler()
+    close_session()  # Clean up HTTP connections
 
 app = FastAPI(lifespan=lifespan, title="Little Red Flower API")
 
@@ -124,9 +132,9 @@ async def get_sentiment(date: str = Query(None, description="Date in YYYY-MM-DD 
     if not os.path.exists(file_path):
         # Return a neutral placeholder if nothing found
         return {
-            "score": 50, 
-            "label": "Neutral", 
-            "summary": "暂无情绪数据 (No sentiment data available yet).",
+            "score": 50,
+            "label": "中性",
+            "summary": "暂无情绪数据，请等待系统生成每日情绪分析报告。",
             "timestamp": None,
             "is_placeholder": True,
             "history": []
@@ -216,13 +224,30 @@ async def concept_hot():
 async def get_datasource():
     """Get current data source configuration."""
     source = get_data_source()
-    return {"source": source}
+    # Always check if tushare token is configured, regardless of current source
+    token_configured = bool(get_tushare_token())
+    return {
+        "source": source,
+        "available_sources": VALID_DATA_SOURCES,
+        "tushare_token_configured": token_configured
+    }
+
 
 @app.post("/api/datasource")
 async def set_datasource(request: DataSourceRequest):
-    """Set data source (eastmoney or sina)."""
-    if request.source not in ["eastmoney", "sina"]:
-        raise HTTPException(status_code=400, detail="Invalid data source. Use 'eastmoney' or 'sina'.")
+    """Set data source (eastmoney, sina, or tushare)."""
+    if request.source not in VALID_DATA_SOURCES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid data source. Use one of: {', '.join(VALID_DATA_SOURCES)}"
+        )
+
+    # If switching to tushare, check token is configured
+    if request.source == "tushare" and not get_tushare_token():
+        raise HTTPException(
+            status_code=400,
+            detail="Tushare token not configured. Set token first via POST /api/datasource/tushare-token"
+        )
 
     success = set_data_source(request.source)
     if success:
@@ -230,11 +255,76 @@ async def set_datasource(request: DataSourceRequest):
     else:
         raise HTTPException(status_code=500, detail="Failed to save data source configuration.")
 
+
 @app.get("/api/datasource/test")
-async def test_datasource(source: str = Query("sina", description="Data source to test")):
+async def test_datasource(source: str = Query("eastmoney", description="Data source to test")):
     """Test if a data source is available."""
     result = test_data_source(source)
     return result
+
+
+@app.post("/api/datasource/tushare-token")
+async def set_tushare_token_api(request: TushareTokenRequest):
+    """Set Tushare Pro API token."""
+    if not request.token or len(request.token) < 10:
+        raise HTTPException(status_code=400, detail="Invalid token format")
+
+    success = set_tushare_token(request.token)
+    if success:
+        # Reset the tushare client to use new token
+        from api.services.tushare_client import reset_pro_api
+        reset_pro_api()
+        return {"status": "success", "message": "Tushare token saved"}
+    else:
+        raise HTTPException(status_code=500, detail="Failed to save Tushare token")
+
+
+@app.get("/api/datasource/tushare-token")
+async def get_tushare_token_status():
+    """Check if Tushare token is configured (does not return the actual token)."""
+    token = get_tushare_token()
+    return {
+        "configured": bool(token),
+        "token_preview": f"{token[:8]}...{token[-4:]}" if token and len(token) > 12 else None
+    }
+
+
+# Thread pool for running sync functions concurrently
+_executor = ThreadPoolExecutor(max_workers=6)
+
+
+@app.get("/api/dashboard/all")
+async def get_dashboard_all():
+    """
+    Get all dashboard data in a single request (concurrent fetching).
+    This reduces latency by fetching radar, index, fund flow, and concepts in parallel.
+    """
+    loop = asyncio.get_event_loop()
+
+    # Run all data fetching functions concurrently
+    radar_task = loop.run_in_executor(_executor, get_market_radar_data)
+    index_task = loop.run_in_executor(_executor, get_index_overview)
+    fund_task = loop.run_in_executor(_executor, get_fund_flow_rank)
+    concept_task = loop.run_in_executor(_executor, get_hot_concepts)
+
+    # Wait for all tasks to complete
+    results = await asyncio.gather(
+        radar_task, index_task, fund_task, concept_task,
+        return_exceptions=True
+    )
+
+    # Process results, handle any exceptions
+    def safe_result(r, default):
+        if isinstance(r, Exception):
+            return default
+        return r
+
+    return {
+        "radar": safe_result(results[0], {"sectors": [], "ladder": {}}),
+        "index": safe_result(results[1], []),
+        "fund_flow": safe_result(results[2], {"data": []}),
+        "concepts": safe_result(results[3], {"data": []}),
+    }
 
 # Serve Frontend Static Files (After API routes to avoid conflict)
 # In production, we assume 'web/dist' exists

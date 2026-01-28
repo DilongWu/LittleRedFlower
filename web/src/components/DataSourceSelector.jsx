@@ -1,22 +1,45 @@
 import React, { useState, useEffect } from 'react';
-import { Database, RefreshCw, Check, X, AlertCircle } from 'lucide-react';
+import { Database, RefreshCw, Check, X, AlertCircle, Key } from 'lucide-react';
 
 function DataSourceSelector() {
-  const [currentSource, setCurrentSource] = useState('sina');
+  const [currentSource, setCurrentSource] = useState('eastmoney');
+  const [availableSources, setAvailableSources] = useState(['eastmoney', 'sina', 'tushare']);
+  const [tushareConfigured, setTushareConfigured] = useState(false);
   const [loading, setLoading] = useState(false);
   const [testResults, setTestResults] = useState({});
   const [testing, setTesting] = useState({});
   const [showSelector, setShowSelector] = useState(false);
+  const [showTokenInput, setShowTokenInput] = useState(false);
+  const [tokenInput, setTokenInput] = useState('');
+  const [savingToken, setSavingToken] = useState(false);
 
   useEffect(() => {
     // Fetch current data source
     fetch('/api/datasource')
       .then(res => res.json())
-      .then(data => setCurrentSource(data.source))
+      .then(data => {
+        setCurrentSource(data.source);
+        if (data.available_sources) {
+          setAvailableSources(data.available_sources);
+        }
+        setTushareConfigured(data.tushare_token_configured === true);
+      })
       .catch(err => console.error('Failed to fetch data source:', err));
+
+    // Check Tushare token status
+    fetch('/api/datasource/tushare-token')
+      .then(res => res.json())
+      .then(data => setTushareConfigured(data.configured))
+      .catch(err => console.error('Failed to check tushare token:', err));
   }, []);
 
   const handleSourceChange = async (source) => {
+    // If trying to switch to tushare without token, show token input
+    if (source === 'tushare' && !tushareConfigured) {
+      setShowTokenInput(true);
+      return;
+    }
+
     setLoading(true);
     try {
       const res = await fetch('/api/datasource', {
@@ -30,12 +53,43 @@ function DataSourceSelector() {
         // Refresh page to reload data with new source
         window.location.reload();
       } else {
-        alert('Failed to change data source');
+        const error = await res.json();
+        alert('Failed to change data source: ' + (error.detail || 'Unknown error'));
       }
     } catch (err) {
       alert('Error changing data source: ' + err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const saveTushareToken = async () => {
+    if (!tokenInput || tokenInput.length < 10) {
+      alert('请输入有效的 Tushare Token');
+      return;
+    }
+
+    setSavingToken(true);
+    try {
+      const res = await fetch('/api/datasource/tushare-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: tokenInput })
+      });
+
+      if (res.ok) {
+        setTushareConfigured(true);
+        setShowTokenInput(false);
+        setTokenInput('');
+        alert('Token 保存成功！现在可以切换到 Tushare 数据源了。');
+      } else {
+        const error = await res.json();
+        alert('保存失败: ' + (error.detail || 'Unknown error'));
+      }
+    } catch (err) {
+      alert('保存失败: ' + err.message);
+    } finally {
+      setSavingToken(false);
     }
   };
 
@@ -57,18 +111,30 @@ function DataSourceSelector() {
 
   const sources = [
     {
+      id: 'eastmoney',
+      name: '东方财富',
+      description: '数据全面，包含板块、概念等',
+      icon: '📊'
+    },
+    {
       id: 'sina',
       name: '新浪财经',
       description: '稳定性较好，支持A股实时行情',
       icon: '🌐'
     },
     {
-      id: 'eastmoney',
-      name: '东方财富',
-      description: '数据更全面，包含板块、概念等',
-      icon: '📊'
+      id: 'tushare',
+      name: 'Tushare Pro',
+      description: '专业数据源，限流少，需要Token',
+      icon: '🚀',
+      requiresToken: true
     }
   ];
+
+  const getSourceDisplayName = (sourceId) => {
+    const source = sources.find(s => s.id === sourceId);
+    return source ? source.name : sourceId;
+  };
 
   return (
     <div className="data-source-selector">
@@ -89,7 +155,7 @@ function DataSourceSelector() {
         }}
       >
         <Database size={14} />
-        <span>数据源: {currentSource === 'sina' ? '新浪' : '东方财富'}</span>
+        <span>数据源: {getSourceDisplayName(currentSource)}</span>
       </button>
 
       {showSelector && (
@@ -106,7 +172,7 @@ function DataSourceSelector() {
             padding: '12px',
             boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
             zIndex: 1000,
-            minWidth: '280px'
+            minWidth: '300px'
           }}
         >
           <div style={{ marginBottom: '12px', fontWeight: '600', fontSize: '14px' }}>
@@ -125,7 +191,8 @@ function DataSourceSelector() {
                 marginBottom: '8px',
                 border: currentSource === source.id ? '2px solid #d32f2f' : '1px solid #eee',
                 background: currentSource === source.id ? '#fff5f5' : '#fafafa',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                opacity: source.requiresToken && !tushareConfigured ? 0.7 : 1
               }}
               onClick={() => handleSourceChange(source.id)}
             >
@@ -141,6 +208,24 @@ function DataSourceSelector() {
                         fontSize: '11px'
                       }}>
                         (当前)
+                      </span>
+                    )}
+                    {source.requiresToken && !tushareConfigured && (
+                      <span style={{
+                        marginLeft: '8px',
+                        color: '#ff9800',
+                        fontSize: '11px'
+                      }}>
+                        (需配置Token)
+                      </span>
+                    )}
+                    {source.requiresToken && tushareConfigured && currentSource !== source.id && (
+                      <span style={{
+                        marginLeft: '8px',
+                        color: '#4caf50',
+                        fontSize: '11px'
+                      }}>
+                        (已配置)
                       </span>
                     )}
                   </div>
@@ -183,6 +268,78 @@ function DataSourceSelector() {
             </div>
           ))}
 
+          {/* Tushare Token Input */}
+          {showTokenInput && (
+            <div style={{
+              marginTop: '12px',
+              padding: '12px',
+              background: '#e3f2fd',
+              borderRadius: '6px',
+              border: '1px solid #2196f3'
+            }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                marginBottom: '8px',
+                fontWeight: '500',
+                fontSize: '13px'
+              }}>
+                <Key size={14} />
+                配置 Tushare Token
+              </div>
+              <div style={{ fontSize: '11px', color: '#666', marginBottom: '8px' }}>
+                请前往 <a href="https://tushare.pro" target="_blank" rel="noopener noreferrer" style={{ color: '#2196f3' }}>tushare.pro</a> 注册并获取 Token
+              </div>
+              <input
+                type="text"
+                placeholder="输入你的 Tushare Token"
+                value={tokenInput}
+                onChange={(e) => setTokenInput(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '8px',
+                  borderRadius: '4px',
+                  border: '1px solid #ddd',
+                  fontSize: '12px',
+                  marginBottom: '8px',
+                  boxSizing: 'border-box'
+                }}
+              />
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  onClick={saveTushareToken}
+                  disabled={savingToken}
+                  style={{
+                    flex: 1,
+                    padding: '8px',
+                    borderRadius: '4px',
+                    border: 'none',
+                    background: '#2196f3',
+                    color: 'white',
+                    cursor: savingToken ? 'not-allowed' : 'pointer',
+                    fontSize: '12px'
+                  }}
+                >
+                  {savingToken ? '保存中...' : '保存 Token'}
+                </button>
+                <button
+                  onClick={() => setShowTokenInput(false)}
+                  style={{
+                    padding: '8px 12px',
+                    borderRadius: '4px',
+                    border: '1px solid #ddd',
+                    background: 'white',
+                    cursor: 'pointer',
+                    fontSize: '12px'
+                  }}
+                >
+                  取消
+                </button>
+              </div>
+            </div>
+          )}
+
           {Object.keys(testResults).length > 0 && (
             <div style={{
               marginTop: '8px',
@@ -193,7 +350,7 @@ function DataSourceSelector() {
             }}>
               {Object.entries(testResults).map(([source, result]) => (
                 <div key={source} style={{ marginBottom: '4px' }}>
-                  <strong>{source === 'sina' ? '新浪' : '东方财富'}:</strong>{' '}
+                  <strong>{getSourceDisplayName(source)}:</strong>{' '}
                   {result.available ? (
                     <span style={{ color: 'green' }}>可用 - {result.sample_data}</span>
                   ) : (
@@ -216,7 +373,7 @@ function DataSourceSelector() {
           }}>
             <AlertCircle size={14} color="#856404" style={{ flexShrink: 0, marginTop: '2px' }} />
             <span style={{ color: '#856404' }}>
-              切换数据源后页面会自动刷新。如果某个数据源不可用，系统会显示Demo数据。
+              切换数据源后页面会自动刷新。Tushare 数据源限流少、更稳定，推荐使用。
             </span>
           </div>
         </div>

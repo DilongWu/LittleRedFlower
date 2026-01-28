@@ -2,6 +2,7 @@ openai
 python-dotenv
 azure-identity
 akshare
+tushare
 pandas
 markdown
 fastapi

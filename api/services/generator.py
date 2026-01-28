@@ -678,35 +678,37 @@ def generate_market_sentiment(news_content):
     client = get_azure_client()
     if not client:
         return None
-    
-    system_prompt = """
-    You are a financial analyst AI. Analyze the provided market data and news.
-    Determine the overall market sentiment score from 0 (Extreme Fear) to 100 (Extreme Greed).
 
-    0-20: Extreme Fear (Panic selling, crash)
-    21-40: Fear (Bearish, adjusting)
-    41-60: Neutral (Sideways, waiting)
-    61-80: Greed (Bullish, rally)
-    81-100: Extreme Greed (Bubble, overheating)
-    
-    Output strictly in JSON format:
+    system_prompt = """
+    你是一位专业的A股市场分析师。请根据提供的市场数据和新闻，分析当前市场情绪。
+
+    情绪评分标准（0-100分）：
+    0-20: 极度恐慌 (恐慌性抛售、暴跌)
+    21-40: 恐惧 (偏空、调整)
+    41-60: 中性 (震荡、观望)
+    61-80: 贪婪 (偏多、上涨)
+    81-100: 极度贪婪 (泡沫、过热)
+
+    请严格按照以下JSON格式输出：
     {
-      "score": <int 0-100>,
-      "label": "<string>",
-      "summary": "<string: A 1-sentence summary of the market mood>",
-      "timestamp": "<ISO 8601 timestamp>"
+      "score": <整数 0-100>,
+      "label": "<情绪标签，如：极度恐慌/恐惧/中性/贪婪/极度贪婪>",
+      "summary": "<用中文写一段50-100字的市场情绪深度点评，分析当前市场状态、主要驱动因素和投资者情绪>",
+      "timestamp": "<ISO 8601 时间戳>"
     }
+
+    注意：summary必须用中文撰写，内容要专业、有深度，包含对市场走势的分析判断。
     """
-    
+
     try:
         response = client.chat.completions.create(
             model=AZURE_CONFIG["deploymentName"],
             messages=[
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"Market Data:\n{news_content[:15000]}"}
+                {"role": "user", "content": f"市场数据：\n{news_content[:15000]}"}
             ],
             temperature=0.3,
-            max_tokens=200,
+            max_tokens=300,
             response_format={ "type": "json_object" }
         )
         content = response.choices[0].message.content

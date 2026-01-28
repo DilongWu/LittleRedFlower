@@ -1,11 +1,10 @@
 import datetime
 import pandas as pd
-import logging
-
-from api.services.data_source import get_data_source
-
-
 import math
+
+from api.services.data_source import get_data_source, fetch_with_fallback
+from api.services.cache import get_cache, set_cache
+
 
 def _clean_json_float(val):
     try:
@@ -17,6 +16,7 @@ def _clean_json_float(val):
         return round(f, 2)
     except (ValueError, TypeError):
         return None
+
 
 def _series_to_sparkline(points):
     if not points:
@@ -34,14 +34,26 @@ def _series_to_sparkline(points):
     return result
 
 
-def _get_index_eastmoney(ak, symbol, days, points):
-    """Get index data from Eastmoney."""
-    df = ak.stock_zh_index_daily_em(symbol=symbol)
+def _process_index_df(df, days, points):
+    """Process index dataframe and extract data."""
     if df is None or df.empty:
         return None
 
     df = df.tail(days).copy()
-    df["close"] = pd.to_numeric(df.get("收盘"), errors="coerce")
+
+    # Find close column
+    close_col = None
+    for col in df.columns:
+        if '收盘' in col:
+            close_col = col
+            break
+    if close_col is None:
+        close_col = '收盘' if '收盘' in df.columns else df.columns[4] if len(df.columns) > 4 else None
+
+    if close_col is None:
+        return None
+
+    df["close"] = pd.to_numeric(df[close_col], errors="coerce")
 
     latest = df.iloc[-1]
     prev = df.iloc[-2] if len(df) >= 2 else latest
@@ -55,8 +67,15 @@ def _get_index_eastmoney(ak, symbol, days, points):
 
     series = df["close"].tail(points).tolist()
 
+    # Find date column
+    date_col = None
+    for col in df.columns:
+        if '日期' in col:
+            date_col = col
+            break
+
     return {
-        "date": str(latest.get("日期", datetime.datetime.now().date())),
+        "date": str(latest.get(date_col, datetime.datetime.now().date())) if date_col else str(datetime.datetime.now().date()),
         "close": _clean_json_float(latest_close),
         "change_pct": _clean_json_float(change_pct),
         "ma5": _clean_json_float(ma5),
@@ -65,71 +84,41 @@ def _get_index_eastmoney(ak, symbol, days, points):
     }
 
 
-def _get_index_sina(ak, symbol, days, points):
-    """Get index data from Sina."""
-    try:
-        # Convert symbol format for Sina (sh000001 -> 000001)
-        code = symbol[2:] if symbol.startswith(('sh', 'sz')) else symbol
+def _fetch_index_tushare(symbol: str, days: int):
+    """Fetch index data using Tushare."""
+    from api.services import tushare_client
+    return tushare_client.get_index_daily(symbol, days)
 
-        # Try using index_zh_a_hist which should work with Sina
-        end_date = datetime.datetime.now().strftime("%Y%m%d")
-        start_date = (datetime.datetime.now() - datetime.timedelta(days=days + 30)).strftime("%Y%m%d")
 
-        df = ak.index_zh_a_hist(symbol=code, period="daily", start_date=start_date, end_date=end_date)
-        if df is None or df.empty:
-            return None
+def _fetch_index_eastmoney(symbol: str):
+    """Fetch index data using AkShare (Eastmoney source)."""
+    import akshare as ak
+    return ak.stock_zh_index_daily_em(symbol=symbol)
 
-        df = df.tail(days).copy()
 
-        # Find close column
-        close_col = None
-        for col in df.columns:
-            if '收盘' in col:
-                close_col = col
-                break
-
-        if close_col is None:
-            close_col = '收盘'
-
-        df["close"] = pd.to_numeric(df[close_col], errors="coerce")
-
-        latest = df.iloc[-1]
-        prev = df.iloc[-2] if len(df) >= 2 else latest
-
-        latest_close = float(latest.get("close", 0.0) or 0.0)
-        prev_close = float(prev.get("close", latest_close) or latest_close)
-        change_pct = ((latest_close - prev_close) / prev_close * 100) if prev_close else 0.0
-
-        ma5 = df["close"].rolling(5).mean().iloc[-1]
-        ma20 = df["close"].rolling(20).mean().iloc[-1]
-
-        series = df["close"].tail(points).tolist()
-
-        # Find date column
-        date_col = None
-        for col in df.columns:
-            if '日期' in col:
-                date_col = col
-                break
-
-        return {
-            "date": str(latest.get(date_col, datetime.datetime.now().date())) if date_col else str(datetime.datetime.now().date()),
-            "close": _clean_json_float(latest_close),
-            "change_pct": _clean_json_float(change_pct),
-            "ma5": _clean_json_float(ma5),
-            "ma20": _clean_json_float(ma20),
-            "series": _series_to_sparkline(series),
-        }
-
-    except Exception as e:
-        logging.error(f"Error in _get_index_sina for {symbol}: {e}")
-        return None
+def _fetch_index_sina(symbol: str, days: int):
+    """Fetch index data using AkShare (Sina/alternative source)."""
+    import akshare as ak
+    code = symbol[2:] if symbol.startswith(('sh', 'sz')) else symbol
+    end_date = datetime.datetime.now().strftime("%Y%m%d")
+    start_date = (datetime.datetime.now() - datetime.timedelta(days=days + 30)).strftime("%Y%m%d")
+    return ak.index_zh_a_hist(
+        symbol=code,
+        period="daily",
+        start_date=start_date,
+        end_date=end_date
+    )
 
 
 def get_index_overview(days: int = 60, points: int = 30):
-    import akshare as ak  # Lazy import
-
+    """Get index overview with caching and automatic fallback between data sources."""
     current_source = get_data_source()
+    cache_key = f"index_overview_{current_source}"
+
+    # Check cache first
+    cached_data = get_cache(cache_key)
+    if cached_data is not None:
+        return cached_data
 
     index_map = {
         "上证指数": "sh000001",
@@ -139,62 +128,37 @@ def get_index_overview(days: int = 60, points: int = 30):
     }
 
     results = []
+    actual_source = None
 
     for name, symbol in index_map.items():
-        try:
-            if current_source == "eastmoney":
-                data = _get_index_eastmoney(ak, symbol, days, points)
-            else:
-                data = _get_index_sina(ak, symbol, days, points)
+        # Build fetch functions for each source
+        fetch_funcs = {
+            "tushare": lambda s=symbol: _fetch_index_tushare(s, days),
+            "eastmoney": lambda s=symbol: _fetch_index_eastmoney(s),
+            "sina": lambda s=symbol: _fetch_index_sina(s, days),
+        }
 
+        # Try to fetch with automatic fallback
+        df, source_used = fetch_with_fallback(fetch_funcs, f"index {name}")
+
+        if df is not None:
+            data = _process_index_df(df, days, points)
             if data:
                 data["name"] = name
                 data["symbol"] = symbol
-                data["data_source"] = current_source
+                data["data_source"] = source_used
                 results.append(data)
+                # Track the actual source used
+                if actual_source is None:
+                    actual_source = source_used
 
-        except Exception as e:
-            logging.error(f"Error fetching index {name} ({current_source}): {e}")
-            continue
+    # Cache results (even if empty, to avoid repeated failed requests)
+    if results:
+        # Use actual source in cache key for consistency
+        if actual_source:
+            cache_key = f"index_overview_{actual_source}"
+        set_cache(cache_key, results, 300)  # 5 minutes
+    else:
+        set_cache(cache_key, results, 60)  # 1 minute for empty results
 
-    if not results:
-        return _get_mock_index_data()
-
-    return results
-
-
-def _get_mock_index_data():
-    import random
-    mock_indexes = [
-        {"name": "上证指数", "symbol": "sh000001", "close": 2860.55, "prev": 2850.00},
-        {"name": "深证成指", "symbol": "sz399001", "close": 8600.20, "prev": 8650.00},
-        {"name": "沪深300", "symbol": "sh000300", "close": 3200.10, "prev": 3190.00},
-        {"name": "创业板指", "symbol": "sz399006", "close": 1550.80, "prev": 1540.00},
-    ]
-
-    results = []
-    for item in mock_indexes:
-        change_pct = (item["close"] - item["prev"]) / item["prev"] * 100
-
-        # Generate random sparkline
-        series = []
-        val = item["close"]
-        for _ in range(30):
-            val = val * (1 + (random.random() - 0.5) * 0.02)
-            series.insert(0, val)
-
-        ma5 = sum(series[-5:]) / 5
-        ma20 = sum(series[-20:]) / 20
-
-        results.append({
-            "name": item["name"],
-            "symbol": item["symbol"],
-            "date": datetime.datetime.now().strftime("%Y-%m-%d"),
-            "close": round(item["close"], 2),
-            "change_pct": round(change_pct, 2),
-            "ma5": round(ma5, 2),
-            "ma20": round(ma20, 2),
-            "series": [round(s, 2) for s in series],
-            "data_source": "demo",
-        })
     return results
