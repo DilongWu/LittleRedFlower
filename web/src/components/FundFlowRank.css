@@ -100,3 +100,44 @@
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
+
+/* Mobile Responsive */
+@media screen and (max-width: 768px) {
+  .fund-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .fund-title {
+    font-size: 1.2rem;
+  }
+
+  .fund-table {
+    overflow-x: auto;
+  }
+
+  .fund-row {
+    grid-template-columns: 0.5fr 1fr 0.8fr 0.8fr;
+    font-size: 0.8rem;
+    padding: 8px 10px;
+    min-width: 400px;
+  }
+
+  /* Hide some columns on mobile */
+  .fund-row > *:nth-child(5),
+  .fund-row > *:nth-child(6) {
+    display: none;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .fund-row {
+    grid-template-columns: 0.5fr 1fr 0.8fr;
+    min-width: 280px;
+  }
+
+  .fund-row > *:nth-child(4) {
+    display: none;
+  }
+}

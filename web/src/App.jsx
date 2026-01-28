@@ -198,90 +198,103 @@ function App() {
           <Activity color="#d32f2f" />
           <span>睿组合小红花</span>
         </div>
-        
-        <div 
-          className={`nav-item ${activeTab === 'daily' ? 'active' : ''}`}
-          onClick={() => setActiveTab('daily')}
-        >
-          <FileText size={18} />
-          <span>市场晨讯 (Daily)</span>
-        </div>
-        
-        <div 
-          className={`nav-item ${activeTab === 'weekly' ? 'active' : ''}`}
-          onClick={() => setActiveTab('weekly')}
-        >
-          <Calendar size={18} />
-          <span>每周复盘 (Weekly)</span>
-        </div>
 
-        <div 
-          className={`nav-item ${activeTab === 'sentiment' ? 'active' : ''}`}
-          onClick={() => setActiveTab('sentiment')}
-        >
-          <BarChart size={18} />
-          <span>AI 情绪看板 (Sentiment)</span>
-        </div>
-
-        <div 
-          className={`nav-item ${activeTab === 'radar' ? 'active' : ''}`}
-          onClick={() => setActiveTab('radar')}
-        >
-          <Radar size={18} />
-          <span>全景雷达 (Radar)</span>
-        </div>
-
-        <div 
-          className={`nav-item ${activeTab === 'index' ? 'active' : ''}`}
-          onClick={() => setActiveTab('index')}
-        >
-          <LineChart size={18} />
-          <span>指数K线 (Index)</span>
-        </div>
-
-        <div 
-          className={`nav-item ${activeTab === 'diagnosis' ? 'active' : ''}`}
-          onClick={() => setActiveTab('diagnosis')}
-        >
-          <Stethoscope size={18} />
-          <span>个股诊断 (Diagnosis)</span>
-        </div>
-
-        <div 
-          className={`nav-item ${activeTab === 'fund' ? 'active' : ''}`}
-          onClick={() => setActiveTab('fund')}
-        >
-          <Waves size={18} />
-          <span>资金流向 (Funds)</span>
-        </div>
-
-        <div 
-          className={`nav-item ${activeTab === 'concept' ? 'active' : ''}`}
-          onClick={() => setActiveTab('concept')}
-        >
-          <Flame size={18} />
-          <span>热点题材 (Themes)</span>
-        </div>
-
-        <div 
-          className={`nav-item ${activeTab === 'risk' ? 'active' : ''}`}
-          onClick={() => setActiveTab('risk')}
-        >
-          <ShieldAlert size={18} />
-          <span>风险预警 (Risk)</span>
-        </div>
-
-        <div style={{ marginTop: 'auto', fontSize: '0.8rem', color: '#888' }}>
-          <div style={{ position: 'relative', marginBottom: '15px' }}>
-            <DataSourceSelector />
+        <div className="mobile-nav-scroll">
+          <div
+            className={`nav-item ${activeTab === 'daily' ? 'active' : ''}`}
+            onClick={() => setActiveTab('daily')}
+            title="市场晨讯"
+          >
+            <FileText size={18} />
+            <span>市场晨讯 (Daily)</span>
           </div>
+
+          <div
+            className={`nav-item ${activeTab === 'weekly' ? 'active' : ''}`}
+            onClick={() => setActiveTab('weekly')}
+            title="每周复盘"
+          >
+            <Calendar size={18} />
+            <span>每周复盘 (Weekly)</span>
+          </div>
+
+          <div
+            className={`nav-item ${activeTab === 'sentiment' ? 'active' : ''}`}
+            onClick={() => setActiveTab('sentiment')}
+            title="AI 情绪看板"
+          >
+            <BarChart size={18} />
+            <span>AI 情绪看板 (Sentiment)</span>
+          </div>
+
+          <div
+            className={`nav-item ${activeTab === 'radar' ? 'active' : ''}`}
+            onClick={() => setActiveTab('radar')}
+            title="全景雷达"
+          >
+            <Radar size={18} />
+            <span>全景雷达 (Radar)</span>
+          </div>
+
+          <div
+            className={`nav-item ${activeTab === 'index' ? 'active' : ''}`}
+            onClick={() => setActiveTab('index')}
+            title="指数K线"
+          >
+            <LineChart size={18} />
+            <span>指数K线 (Index)</span>
+          </div>
+
+          <div
+            className={`nav-item ${activeTab === 'diagnosis' ? 'active' : ''}`}
+            onClick={() => setActiveTab('diagnosis')}
+            title="个股诊断"
+          >
+            <Stethoscope size={18} />
+            <span>个股诊断 (Diagnosis)</span>
+          </div>
+
+          <div
+            className={`nav-item ${activeTab === 'fund' ? 'active' : ''}`}
+            onClick={() => setActiveTab('fund')}
+            title="资金流向"
+          >
+            <Waves size={18} />
+            <span>资金流向 (Funds)</span>
+          </div>
+
+          <div
+            className={`nav-item ${activeTab === 'concept' ? 'active' : ''}`}
+            onClick={() => setActiveTab('concept')}
+            title="热点题材"
+          >
+            <Flame size={18} />
+            <span>热点题材 (Themes)</span>
+          </div>
+
+          <div
+            className={`nav-item ${activeTab === 'risk' ? 'active' : ''}`}
+            onClick={() => setActiveTab('risk')}
+            title="风险预警"
+          >
+            <ShieldAlert size={18} />
+            <span>风险预警 (Risk)</span>
+          </div>
+
           <div
              className="nav-item"
              onClick={handleLogout}
-             style={{color: '#d32f2f', marginBottom: '10px'}}
+             style={{color: '#d32f2f'}}
+             title="退出登录"
           >
             <LogOut size={18} />
             <span>退出登录</span>
+          </div>
+        </div>
+
+        <div className="sidebar-footer" style={{ marginTop: 'auto', fontSize: '0.8rem', color: '#888' }}>
+          <div style={{ position: 'relative', marginBottom: '15px' }}>
+            <DataSourceSelector />
           </div>
           <p>数据来源: AkShare</p>
           <p>生成时间: 08:00 AM</p>

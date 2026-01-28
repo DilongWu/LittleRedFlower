@@ -119,3 +119,43 @@
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
+
+/* Mobile Responsive */
+@media screen and (max-width: 768px) {
+  .index-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .index-title {
+    font-size: 1.2rem;
+  }
+
+  .index-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .index-card {
+    padding: 12px;
+  }
+
+  .index-price {
+    font-size: 1rem;
+  }
+
+  .index-change {
+    font-size: 0.8rem;
+  }
+
+  .index-ma {
+    font-size: 0.7rem;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .index-grid {
+    grid-template-columns: 1fr;
+  }
+}

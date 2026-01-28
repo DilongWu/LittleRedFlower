@@ -170,3 +170,57 @@
   fill: #9ca3af;
   text-anchor: middle;
 }
+
+/* Mobile Responsive */
+@media screen and (max-width: 768px) {
+  .dashboard-container {
+    padding: 0;
+  }
+
+  .dash-card {
+    padding: 16px;
+    border-radius: 12px;
+  }
+
+  .dash-title {
+    font-size: 1rem;
+    margin-bottom: 15px;
+  }
+
+  .gauge-svg-box {
+    width: 200px;
+    height: 120px;
+  }
+
+  .score-badge {
+    padding: 12px;
+  }
+
+  .score-badge-val {
+    font-size: 1.2rem;
+  }
+
+  .score-badge-label {
+    font-size: 0.7rem;
+  }
+
+  .advice-item {
+    padding: 10px;
+    gap: 8px;
+  }
+
+  .advice-text {
+    font-size: 0.85rem;
+  }
+
+  .chart-container {
+    height: 150px;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .gauge-svg-box {
+    width: 180px;
+    height: 100px;
+  }
+}
