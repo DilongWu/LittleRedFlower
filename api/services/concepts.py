@@ -2,7 +2,7 @@ import datetime
 import logging
 import math
 
-from api.services.data_source import get_data_source
+from api.services.data_source import get_data_source, fetch_with_fallback
 from api.services.cache import get_cache, set_cache
 from api.services.http_client import fetch_with_retry
 
@@ -15,6 +15,17 @@ def _clean_float(val):
         return f
     except (ValueError, TypeError):
         return None
+
+
+def _get_concepts_tushare(limit):
+    """Get hot concepts from Tushare."""
+    from api.services import tushare_client
+    result = tushare_client.get_concept_board()
+    if result:
+        # Sort by change and limit
+        sorted_result = sorted(result, key=lambda x: (x.get("change") or 0), reverse=True)
+        return sorted_result[:limit]
+    return None
 
 
 def _get_concepts_eastmoney(ak, limit):
@@ -83,7 +94,8 @@ def _get_concepts_sina(ak, limit):
 
 
 def get_hot_concepts(limit: int = 20):
-    import akshare as ak  # Lazy import
+    """Get hot concepts with caching and automatic fallback between data sources."""
+    import akshare as ak
 
     current_source = get_data_source()
     cache_key = f"hot_concepts_{current_source}"
@@ -93,23 +105,24 @@ def get_hot_concepts(limit: int = 20):
     if cached_data is not None:
         return cached_data
 
-    try:
-        if current_source == "eastmoney":
-            result = _get_concepts_eastmoney(ak, limit)
-        else:
-            result = _get_concepts_sina(ak, limit)
+    # Build fetch functions for each source
+    fetch_funcs = {
+        "tushare": lambda: _get_concepts_tushare(limit),
+        "eastmoney": lambda: _get_concepts_eastmoney(ak, limit),
+        "sina": lambda: _get_concepts_sina(ak, limit),
+    }
 
-        if result:
-            data = {
-                "date": datetime.datetime.now().strftime("%Y%m%d"),
-                "data_source": current_source,
-                "data": result
-            }
-            set_cache(cache_key, data, 300)  # 5 minutes cache
-            return data
+    # Try to fetch with automatic fallback
+    result, source_used = fetch_with_fallback(fetch_funcs, "hot concepts")
 
-    except Exception as e:
-        logging.error(f"Error fetching concepts ({current_source}): {e}")
+    if result:
+        data = {
+            "date": datetime.datetime.now().strftime("%Y%m%d"),
+            "data_source": source_used or current_source,
+            "data": result
+        }
+        set_cache(cache_key, data, 300)  # 5 minutes cache
+        return data
 
     # Return empty data and cache for short time
     empty_data = {

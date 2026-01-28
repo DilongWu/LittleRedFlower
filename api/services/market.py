@@ -1,9 +1,9 @@
 import pandas as pd
 import datetime
-import logging
 import math
+import time
 
-from api.services.data_source import get_data_source
+from api.services.data_source import get_data_source, fetch_with_fallback
 from api.services.cache import get_cache, set_cache
 from api.services.http_client import fetch_with_retry
 
@@ -18,9 +18,14 @@ def _clean_float(val):
         return 0.0
 
 
-def _get_sectors_data(ak):
-    """Get sector data with retry mechanism."""
-    # Try industry board first
+def _get_sectors_tushare():
+    """Get sector data from Tushare."""
+    from api.services import tushare_client
+    return tushare_client.get_industry_board()
+
+
+def _get_sectors_eastmoney(ak):
+    """Get sector data from Eastmoney via AkShare."""
     df = fetch_with_retry(ak.stock_board_industry_name_em, max_retries=2)
 
     if df is not None and not df.empty:
@@ -33,8 +38,11 @@ def _get_sectors_data(ak):
                 "top_stock": row.get('领涨股票', '')
             })
         return sectors
+    return None
 
-    # Fallback to concept board
+
+def _get_sectors_sina(ak):
+    """Get sector data from Sina via AkShare (fallback to concept board)."""
     df = fetch_with_retry(ak.stock_board_concept_name_em, max_retries=2)
 
     if df is not None and not df.empty:
@@ -47,16 +55,31 @@ def _get_sectors_data(ak):
                 "top_stock": row.get('领涨股票', '')
             })
         return sectors
+    return None
 
-    return []
+
+def _get_limit_up_tushare(now):
+    """Get limit-up ladder data from Tushare."""
+    from api.services import tushare_client
+
+    today_str = now.strftime("%Y%m%d")
+    dates_to_try = [today_str]
+    for i in range(1, 4):
+        dates_to_try.append((now - datetime.timedelta(days=i)).strftime("%Y%m%d"))
+
+    for date_str in dates_to_try:
+        ladder = tushare_client.get_limit_up_pool(date_str)
+        if ladder:
+            return ladder, date_str
+
+    return None, today_str
 
 
-def _get_limit_up_data(ak, now):
-    """Get limit-up ladder data with retry mechanism."""
+def _get_limit_up_eastmoney(ak, now):
+    """Get limit-up ladder data from Eastmoney via AkShare."""
     today_str = now.strftime("%Y%m%d")
     ladder = {}
 
-    # Try today first, then previous days
     dates_to_try = [today_str]
     for i in range(1, 4):
         dates_to_try.append((now - datetime.timedelta(days=i)).strftime("%Y%m%d"))
@@ -83,11 +106,11 @@ def _get_limit_up_data(ak, now):
 
             return ladder, date_str
 
-    return ladder, today_str
+    return None, today_str
 
 
 def get_market_radar_data():
-    """Get market radar data with caching."""
+    """Get market radar data with caching and automatic fallback between data sources."""
     import akshare as ak
 
     current_source = get_data_source()
@@ -99,35 +122,54 @@ def get_market_radar_data():
         return cached_data
 
     now = datetime.datetime.now()
+    sectors = None
+    ladder = None
+    date_str = now.strftime("%Y%m%d")
+    actual_source = None
 
-    try:
-        # Get sectors
-        sectors = _get_sectors_data(ak)
+    # Build fetch functions for sectors
+    sectors_fetch_funcs = {
+        "tushare": _get_sectors_tushare,
+        "eastmoney": lambda: _get_sectors_eastmoney(ak),
+        "sina": lambda: _get_sectors_sina(ak),
+    }
 
-        # Get limit-up ladder
-        ladder, date_str = _get_limit_up_data(ak, now)
+    # Try to fetch sectors with automatic fallback
+    sectors, source_used = fetch_with_fallback(sectors_fetch_funcs, "sectors")
+    if source_used:
+        actual_source = source_used
 
-        data = {
-            "data_source": current_source,
-            "date": date_str,
-            "sectors": sectors,
-            "ladder": ladder
-        }
+    # Add delay between requests
+    time.sleep(1.0)
 
-        # Cache results
-        if sectors or ladder:
-            set_cache(cache_key, data, 300)  # 5 minutes
+    # Build fetch functions for limit-up ladder
+    ladder_fetch_funcs = {
+        "tushare": lambda: _get_limit_up_tushare(now),
+        "eastmoney": lambda: _get_limit_up_eastmoney(ak, now),
+        "sina": lambda: _get_limit_up_eastmoney(ak, now),  # Use same as eastmoney
+    }
+
+    # Try to fetch ladder with automatic fallback
+    ladder_result, ladder_source = fetch_with_fallback(ladder_fetch_funcs, "limit-up ladder")
+    if ladder_result:
+        if isinstance(ladder_result, tuple):
+            ladder, date_str = ladder_result
         else:
-            set_cache(cache_key, data, 60)  # 1 minute for empty
+            ladder = ladder_result
+        if ladder_source and not actual_source:
+            actual_source = ladder_source
 
-        return data
+    data = {
+        "data_source": actual_source or current_source,
+        "date": date_str,
+        "sectors": sectors or [],
+        "ladder": ladder or {}
+    }
 
-    except Exception as e:
-        logging.error(f"Error fetching market radar data: {e}")
-        return {
-            "date": now.strftime("%Y%m%d"),
-            "data_source": "error",
-            "error": str(e),
-            "sectors": [],
-            "ladder": {}
-        }
+    # Cache results
+    if sectors or ladder:
+        set_cache(cache_key, data, 300)  # 5 minutes
+    else:
+        set_cache(cache_key, data, 60)  # 1 minute for empty
+
+    return data

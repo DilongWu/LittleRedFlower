@@ -1,9 +1,7 @@
 import datetime
-import logging
 import math
-import pandas as pd
 
-from api.services.data_source import get_data_source
+from api.services.data_source import get_data_source, fetch_with_fallback
 from api.services.cache import get_cache, set_cache
 from api.services.http_client import fetch_with_retry
 
@@ -25,10 +23,14 @@ def _find_col(columns, keywords):
     return None
 
 
-def _get_fund_flow_data(ak, limit):
-    """Get fund flow data with retry mechanism."""
+def _get_fund_flow_tushare(limit):
+    """Get fund flow data from Tushare."""
+    from api.services import tushare_client
+    return tushare_client.get_fund_flow_rank(limit)
 
-    # Try fund flow rank first (best data source)
+
+def _get_fund_flow_eastmoney(ak, limit):
+    """Get fund flow data from Eastmoney via AkShare."""
     df = fetch_with_retry(ak.stock_individual_fund_flow_rank, max_retries=2)
 
     if df is not None and not df.empty:
@@ -52,7 +54,11 @@ def _get_fund_flow_data(ak, limit):
             })
         return result
 
-    # Fallback: Try stock list
+    return None
+
+
+def _get_fund_flow_sina(ak, limit):
+    """Get fund flow data from Sina via AkShare (fallback to stock list)."""
     stock_list = fetch_with_retry(ak.stock_info_a_code_name, max_retries=2)
 
     if stock_list is not None and not stock_list.empty:
@@ -72,7 +78,7 @@ def _get_fund_flow_data(ak, limit):
 
 
 def get_fund_flow_rank(limit: int = 30):
-    """Get fund flow rank with caching."""
+    """Get fund flow rank with caching and automatic fallback between data sources."""
     import akshare as ak
 
     current_source = get_data_source()
@@ -83,20 +89,24 @@ def get_fund_flow_rank(limit: int = 30):
     if cached_data is not None:
         return cached_data
 
-    try:
-        result = _get_fund_flow_data(ak, limit)
+    # Build fetch functions for each source
+    fetch_funcs = {
+        "tushare": lambda: _get_fund_flow_tushare(limit),
+        "eastmoney": lambda: _get_fund_flow_eastmoney(ak, limit),
+        "sina": lambda: _get_fund_flow_sina(ak, limit),
+    }
 
-        if result:
-            data = {
-                "date": datetime.datetime.now().strftime("%Y%m%d"),
-                "data_source": current_source,
-                "data": result
-            }
-            set_cache(cache_key, data, 300)  # 5 minutes
-            return data
+    # Try to fetch with automatic fallback
+    result, source_used = fetch_with_fallback(fetch_funcs, "fund flow")
 
-    except Exception as e:
-        logging.error(f"Error fetching fund flow: {e}")
+    if result:
+        data = {
+            "date": datetime.datetime.now().strftime("%Y%m%d"),
+            "data_source": source_used or current_source,
+            "data": result
+        }
+        set_cache(cache_key, data, 300)  # 5 minutes
+        return data
 
     # Return empty data
     empty_data = {
