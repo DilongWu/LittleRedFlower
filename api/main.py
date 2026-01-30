@@ -221,6 +221,7 @@ async def fund_flow_rank():
     return result
 
 @app.get("/api/concept/hot")
+@app.get("/api/concepts/hot")  # Add plural form for consistency
 async def concept_hot():
     """Get hot concept list ranked by change percent."""
     result = get_hot_concepts()
