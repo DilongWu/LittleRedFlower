@@ -502,9 +502,34 @@ body {
     display: none; /* Hide text, show only icon on mobile */
   }
 
-  /* Hide the footer on mobile sidebar */
+  /* Hide the footer text on mobile sidebar, but keep data source selector */
   .sidebar-footer {
-    display: none;
+    display: block !important; /* Override to keep visible */
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid #eee;
+  }
+
+  .sidebar-footer > p {
+    display: none; /* Hide the text info */
+  }
+
+  /* Make data source selector mobile-friendly */
+  .data-source-selector {
+    position: relative;
+  }
+
+  .data-source-toggle {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+
+  .data-source-dropdown {
+    left: 0 !important;
+    right: 0 !important;
+    width: calc(100vw - 30px) !important;
+    max-width: 400px !important;
+    margin: 0 auto !important;
   }
 
   .main-content {
