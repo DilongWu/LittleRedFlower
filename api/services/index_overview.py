@@ -2,6 +2,7 @@ import datetime
 import time
 import pandas as pd
 import math
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from api.services.data_source import get_data_source, fetch_with_fallback
 from api.services.cache import get_cache, set_cache
@@ -111,8 +112,31 @@ def _fetch_index_sina(symbol: str, days: int):
     )
 
 
+def _fetch_single_index(name, symbol, days, points):
+    """Fetch a single index with fallback logic."""
+    # Build fetch functions for each source
+    fetch_funcs = {
+        "tushare": lambda: _fetch_index_tushare(symbol, days),
+        "eastmoney": lambda: _fetch_index_eastmoney(symbol),
+        "sina": lambda: _fetch_index_sina(symbol, days),
+    }
+
+    # Try to fetch with automatic fallback
+    df, source_used = fetch_with_fallback(fetch_funcs, f"index {name}")
+
+    if df is not None:
+        data = _process_index_df(df, days, points)
+        if data:
+            data["name"] = name
+            data["symbol"] = symbol
+            data["data_source"] = source_used
+            return data, source_used
+
+    return None, None
+
+
 def get_index_overview(days: int = 60, points: int = 30):
-    """Get index overview with caching and automatic fallback between data sources."""
+    """Get index overview with caching, parallel fetching, and automatic fallback between data sources."""
     current_source = get_data_source()
     cache_key = f"index_overview_{current_source}"
 
@@ -131,39 +155,43 @@ def get_index_overview(days: int = 60, points: int = 30):
     results = []
     actual_source = None
 
-    for name, symbol in index_map.items():
-        # Add delay between index requests to avoid rate limiting
-        if results:  # Not the first request
-            time.sleep(1.0)  # 1 second delay between each index
-
-        # Build fetch functions for each source
-        fetch_funcs = {
-            "tushare": lambda s=symbol: _fetch_index_tushare(s, days),
-            "eastmoney": lambda s=symbol: _fetch_index_eastmoney(s),
-            "sina": lambda s=symbol: _fetch_index_sina(s, days),
+    # Use ThreadPoolExecutor for parallel fetching
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        # Submit all index fetching tasks
+        future_to_index = {
+            executor.submit(_fetch_single_index, name, symbol, days, points): name
+            for name, symbol in index_map.items()
         }
 
-        # Try to fetch with automatic fallback
-        df, source_used = fetch_with_fallback(fetch_funcs, f"index {name}")
+        # Collect results as they complete
+        for future in as_completed(future_to_index):
+            try:
+                data, source_used = future.result(timeout=10)  # 10 second timeout per index
+                if data:
+                    results.append(data)
+                    # Track the actual source used
+                    if actual_source is None:
+                        actual_source = source_used
+            except Exception as e:
+                index_name = future_to_index[future]
+                print(f"Error fetching {index_name}: {e}")
+                continue
 
-        if df is not None:
-            data = _process_index_df(df, days, points)
-            if data:
-                data["name"] = name
-                data["symbol"] = symbol
-                data["data_source"] = source_used
-                results.append(data)
-                # Track the actual source used
-                if actual_source is None:
-                    actual_source = source_used
+    # Sort results by original order
+    ordered_results = []
+    for name in index_map.keys():
+        for result in results:
+            if result["name"] == name:
+                ordered_results.append(result)
+                break
 
     # Cache results (even if empty, to avoid repeated failed requests)
-    if results:
+    if ordered_results:
         # Use actual source in cache key for consistency
         if actual_source:
             cache_key = f"index_overview_{actual_source}"
-        set_cache(cache_key, results, 300)  # 5 minutes
+        set_cache(cache_key, ordered_results, 600)  # 10 minutes (increased from 5)
     else:
-        set_cache(cache_key, results, 60)  # 1 minute for empty results
+        set_cache(cache_key, ordered_results, 120)  # 2 minutes for empty results
 
-    return results
+    return ordered_results

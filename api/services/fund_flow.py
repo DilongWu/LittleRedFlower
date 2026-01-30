@@ -105,7 +105,7 @@ def get_fund_flow_rank(limit: int = 30):
             "data_source": source_used or current_source,
             "data": result
         }
-        set_cache(cache_key, data, 300)  # 5 minutes
+        set_cache(cache_key, data, 600)  # 10 minutes (increased from 5)
         return data
 
     # Return empty data
@@ -114,5 +114,5 @@ def get_fund_flow_rank(limit: int = 30):
         "data_source": "error",
         "data": []
     }
-    set_cache(cache_key, empty_data, 60)  # 1 minute for errors
+    set_cache(cache_key, empty_data, 120)  # 2 minutes for errors (increased from 1)
     return empty_data

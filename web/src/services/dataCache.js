@@ -1,14 +1,74 @@
 /**
- * Frontend data cache with automatic expiration and prefetching
+ * Frontend data cache with automatic expiration, prefetching, timeout, and retry
  */
 
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
+const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes (increased from 5)
+const REQUEST_TIMEOUT = 15000; // 15 seconds timeout
+const MAX_RETRIES = 2; // Maximum retry attempts
 
 // In-memory cache
 const cache = new Map();
 
 // Pending requests to avoid duplicate fetches
 const pending = new Map();
+
+/**
+ * Fetch with timeout support
+ */
+async function fetchWithTimeout(url, options = {}, timeout = REQUEST_TIMEOUT) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    return response;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      throw new Error('请求超时，请检查网络连接');
+    }
+    throw error;
+  }
+}
+
+/**
+ * Fetch with automatic retry on failure
+ */
+async function fetchWithRetry(url, options = {}, retries = MAX_RETRIES) {
+  let lastError;
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const response = await fetchWithTimeout(url, options);
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      return response;
+    } catch (error) {
+      lastError = error;
+
+      // Don't retry on 4xx errors (client errors)
+      if (error.message.includes('HTTP 4')) {
+        throw error;
+      }
+
+      // Wait before retrying (exponential backoff)
+      if (attempt < retries) {
+        const delay = Math.min(1000 * Math.pow(2, attempt), 5000);
+        console.log(`[Retry ${attempt + 1}/${retries}] ${url} - waiting ${delay}ms`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+
+  throw lastError;
+}
 
 /**
  * Get data from cache or fetch from API
@@ -34,13 +94,10 @@ export async function fetchWithCache(url, options = {}) {
     return pending.get(cacheKey);
   }
 
-  // Fetch new data
+  // Fetch new data with retry logic
   console.log(`[Cache MISS] ${url}`);
-  const fetchPromise = fetch(url, options)
+  const fetchPromise = fetchWithRetry(url, options)
     .then(async (res) => {
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
-      }
       const data = await res.json();
 
       // Store in cache
@@ -57,6 +114,7 @@ export async function fetchWithCache(url, options = {}) {
     })
     .catch((err) => {
       pending.delete(cacheKey);
+      console.error(`[Fetch Error] ${url}:`, err.message);
       throw err;
     });
 

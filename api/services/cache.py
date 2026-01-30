@@ -8,10 +8,10 @@ from typing import Any, Optional, Dict
 # In-memory cache storage
 _CACHE: Dict[str, Dict[str, Any]] = {}
 
-# Default cache durations (in seconds)
+# Default cache durations (in seconds) - Increased for better stability
 CACHE_DURATIONS = {
-    "index_overview": 600,      # 10 minutes
-    "market_radar": 600,        # 10 minutes
+    "index_overview": 900,      # 15 minutes (increased from 10)
+    "market_radar": 900,        # 15 minutes (increased from 10)
     "fund_flow": 600,           # 10 minutes
     "hot_concepts": 600,        # 10 minutes
     "stock_diagnosis": 60,      # 1 minute (user-specific)

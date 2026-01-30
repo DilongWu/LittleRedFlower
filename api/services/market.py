@@ -139,8 +139,8 @@ def get_market_radar_data():
     if source_used:
         actual_source = source_used
 
-    # Add delay between requests
-    time.sleep(1.0)
+    # Reduced delay between requests from 1.0s to 0.3s for better performance
+    time.sleep(0.3)
 
     # Build fetch functions for limit-up ladder
     ladder_fetch_funcs = {
@@ -166,10 +166,10 @@ def get_market_radar_data():
         "ladder": ladder or {}
     }
 
-    # Cache results
+    # Cache results with longer duration
     if sectors or ladder:
-        set_cache(cache_key, data, 300)  # 5 minutes
+        set_cache(cache_key, data, 600)  # 10 minutes (increased from 5)
     else:
-        set_cache(cache_key, data, 60)  # 1 minute for empty
+        set_cache(cache_key, data, 120)  # 2 minutes for empty (increased from 1)
 
     return data
