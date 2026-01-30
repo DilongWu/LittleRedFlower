@@ -237,11 +237,11 @@ const DataSourceDashboard = () => {
           {/* Sector Performance */}
           <SectorPerformance sectors={parsedData.sectors} />
 
-          {/* News Section */}
-          <NewsSection news={parsedData.news} />
-
           {/* Limit-Up Ladder */}
           <LimitUpLadderEnhanced ladder={parsedData.ladder} />
+
+          {/* News Section - Moved below Ladder */}
+          <NewsSection news={parsedData.news} />
 
           {/* Footer - Data Source Info */}
           <div className="ds-footer">

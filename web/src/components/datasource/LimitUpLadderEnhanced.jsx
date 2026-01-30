@@ -73,11 +73,6 @@ const LimitUpLadderEnhanced = ({ ladder }) => {
                         onClick={() => hasDetails && toggleStock(globalIdx)}
                       >
                         <div className="stock-info">
-                          {hasDetails && (
-                            isExpanded ?
-                              <ChevronDown size={14} className="expand-icon" /> :
-                              <ChevronRight size={14} className="expand-icon" />
-                          )}
                           <span className="stock-name">{stock.name}</span>
                           <span className="stock-industry">{stock.industry}</span>
                         </div>
@@ -95,6 +90,37 @@ const LimitUpLadderEnhanced = ({ ladder }) => {
                             </span>
                           )}
                         </div>
+                        {hasDetails && (
+                          <div className={`expand-button ${isExpanded ? 'expanded' : ''}`}>
+                            <div className="expand-hint">
+                              {isExpanded ? (
+                                <>
+                                  <ChevronDown size={16} />
+                                  <span>收起详情</span>
+                                </>
+                              ) : (
+                                <>
+                                  <ChevronRight size={16} />
+                                  <span>查看 AI 分析与资讯</span>
+                                </>
+                              )}
+                            </div>
+                            <div className="detail-indicators">
+                              {stock.analysis && (
+                                <span className="indicator-badge ai-badge">
+                                  <Sparkles size={12} />
+                                  AI
+                                </span>
+                              )}
+                              {stock.news && stock.news.length > 0 && (
+                                <span className="indicator-badge news-badge">
+                                  <Newspaper size={12} />
+                                  {stock.news.length}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       {/* Expandable Details */}
