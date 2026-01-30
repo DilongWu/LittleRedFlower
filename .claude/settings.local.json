@@ -10,7 +10,23 @@
       "Bash(npm run build:*)",
       "Bash(npx vite build)",
       "Bash(node -e:*)",
-      "Bash(npx vite build --debug)"
+      "Bash(npx vite build --debug)",
+      "Bash(dir:*)",
+      "Bash(./node_modules/.bin/vite build --debug)",
+      "Bash(node ./node_modules/vite/bin/vite.js:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nAdd frontend build step to GitHub Actions workflow\n\n- Install Node.js and npm dependencies\n- Build React/Vite frontend before deployment\n- Exclude node_modules from deployment artifact\n\nNow frontend changes will be auto-built on push without local build\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git push)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nAdd frontend caching and skeleton loading for faster UX\n\nFeatures:\n- Add dataCache.js service for frontend request caching \\(5min TTL\\)\n- Prefetch dashboard data on login for instant tab switching\n- Add skeleton loading animations for all slow pages:\n  - MarketRadar, IndexOverview, FundFlowRank\n  - HotConcepts, RiskAlerts\n- Refresh button bypasses cache for fresh data\n\nThis improves perceived performance by showing loading skeletons\ninstead of blank screens, and reduces API calls via caching.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nAdd cache warmup scheduled jobs for faster first-user experience\n\nSchedule:\n- 09:25 AM \\(Mon-Fri\\): Pre-warm cache 5 mins before market opens\n- 13:00 PM \\(Mon-Fri\\): Re-warm cache before afternoon session\n\nWarmup preloads:\n- Market radar \\(sectors, limit-up ladder\\)\n- Index overview \\(major indexes\\)\n- Fund flow ranking\n- Hot concepts\n\nAlso added manual trigger endpoint: POST /api/trigger/warmup\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(nslookup:*)",
+      "Bash(git stash:*)",
+      "Bash(git pull:*)",
+      "WebFetch(domain:docs.qq.com)",
+      "WebFetch(domain:tushare.pro)"
     ]
   }
 }
