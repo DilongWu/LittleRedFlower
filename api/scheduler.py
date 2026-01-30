@@ -117,6 +117,32 @@ async def job_warmup_cache():
         logger.error(f"Cache warmup job failed: {e}")
 
 
+async def job_refresh_quotes_cache():
+    """
+    Periodically refresh stock quotes cache during trading hours.
+    This ensures price/change data stays relatively fresh without hammering the API.
+    Runs every 10 minutes during trading hours (9:30-15:00) on weekdays.
+    """
+    logger.info("Starting quotes cache refresh job...")
+    try:
+        import asyncio
+        from api.services.cache import clear_cache
+
+        loop = asyncio.get_running_loop()
+
+        # Clear fund_flow cache to force refresh on next request
+        # This will trigger fresh data fetch including quotes
+        clear_cache("fund_flow")
+
+        # Pre-fetch to warm the cache
+        from api.services.fund_flow import get_fund_flow_rank
+        await loop.run_in_executor(None, get_fund_flow_rank)
+
+        logger.info("Quotes cache refresh completed.")
+    except Exception as e:
+        logger.error(f"Quotes cache refresh failed: {e}")
+
+
 async def job_generate_us_tech():
     """
     Generate US tech stocks data report.
@@ -175,6 +201,16 @@ def start_scheduler():
         replace_existing=True
     )
 
+    # 收盘后刷新行情缓存（15:30），获取当日收盘数据
+    # 注意：Tushare daily_basic 只有收盘后才有当日数据，盘中频繁刷新没有意义
+    # 盘前数据由 cache_warmup (9:25) 任务处理
+    scheduler.add_job(
+        job_refresh_quotes_cache,
+        CronTrigger(hour=15, minute=30, day_of_week='mon-fri'),
+        id="quotes_cache_refresh",
+        replace_existing=True
+    )
+
     # 美股数据生成：周二到周六 05:30（美东时间前一日收盘后，对应周一到周五的交易日）
     # 美股交易时间：美东 9:30-16:00，对应北京时间 22:30-次日5:00（冬令时）或 21:30-次日4:00（夏令时）
     # 我们选择北京时间 5:30 生成，确保美股收盘后数据可用
@@ -186,7 +222,7 @@ def start_scheduler():
     )
 
     scheduler.start()
-    logger.info("Scheduler started with daily/weekly reports, cache warmup, and US tech stocks jobs.")
+    logger.info("Scheduler started with daily/weekly reports, cache warmup, quotes refresh, and US tech stocks jobs.")
 
 def shutdown_scheduler():
     scheduler.shutdown()

@@ -327,10 +327,81 @@ def get_concept_board() -> Optional[List[Dict[str, Any]]]:
 
 # ============ Fund Flow (资金流向) ============
 
+# Cache for stock quotes (reduces API calls)
+_STOCK_QUOTES_CACHE: Dict[str, Any] = {
+    "data": {},
+    "expires_at": None
+}
+
+
+def _get_stock_quotes_batch(ts_codes: List[str], trade_date: str = None) -> Dict[str, Dict[str, Any]]:
+    """
+    Batch fetch stock quotes with caching.
+    Returns a dict mapping ts_code to {price, change_pct}.
+    Uses cache to avoid repeated API calls.
+    """
+    global _STOCK_QUOTES_CACHE
+
+    now = datetime.datetime.now()
+
+    # Cache duration: Tushare daily_basic only updates after market close
+    # So there's no point refreshing frequently during trading hours
+    # Use 1 hour cache during trading, 2 hours otherwise
+    is_trading_hours = 9 <= now.hour < 15 or (now.hour == 15 and now.minute == 0)
+    cache_duration = 3600 if is_trading_hours else 7200  # 1 hour or 2 hours
+
+    if (_STOCK_QUOTES_CACHE["expires_at"] is not None and
+        now < _STOCK_QUOTES_CACHE["expires_at"] and
+        _STOCK_QUOTES_CACHE["data"]):
+        logging.debug("Using cached stock quotes")
+        return _STOCK_QUOTES_CACHE["data"]
+
+    # Cache expired or empty, fetch new data
+    try:
+        pro = get_pro_api()
+        if trade_date is None:
+            trade_date = now.strftime('%Y%m%d')
+
+        # Use daily_basic API to get price and change_pct for all stocks
+        # This is a single API call for all stocks
+        df = pro.daily_basic(trade_date=trade_date, fields='ts_code,close,pct_chg')
+
+        if df is None or df.empty:
+            # Try yesterday if today's data not available yet
+            yesterday = (now - datetime.timedelta(days=1)).strftime('%Y%m%d')
+            df = pro.daily_basic(trade_date=yesterday, fields='ts_code,close,pct_chg')
+
+        if df is None or df.empty:
+            logging.warning("Failed to fetch stock quotes batch")
+            return {}
+
+        # Build quotes dict
+        quotes = {}
+        for _, row in df.iterrows():
+            ts_code = row.get('ts_code', '')
+            quotes[ts_code] = {
+                "price": float(row['close']) if pd.notna(row.get('close')) else None,
+                "change_pct": float(row['pct_chg']) if pd.notna(row.get('pct_chg')) else None
+            }
+
+        # Update cache
+        _STOCK_QUOTES_CACHE["data"] = quotes
+        _STOCK_QUOTES_CACHE["expires_at"] = now + datetime.timedelta(seconds=cache_duration)
+
+        logging.info(f"Refreshed stock quotes cache with {len(quotes)} stocks, expires in {cache_duration}s")
+        return quotes
+
+    except Exception as e:
+        logging.error(f"Error fetching stock quotes batch: {e}")
+        return _STOCK_QUOTES_CACHE.get("data", {})  # Return stale cache if available
+
+
 def get_fund_flow_rank(limit: int = 30) -> Optional[List[Dict[str, Any]]]:
     """
-    Get fund flow rank data.
+    Get fund flow rank data with real-time quotes.
     Returns format compatible with AkShare's stock_individual_fund_flow_rank.
+
+    Optimized: Uses batch quote fetching with caching to avoid rate limits.
     """
     try:
         pro = get_pro_api()
@@ -356,15 +427,26 @@ def get_fund_flow_rank(limit: int = 30) -> Optional[List[Dict[str, Any]]]:
         # Sort by net main inflow
         df = df.sort_values(by='net_mf_amount', ascending=False)
 
+        # Get top stocks' ts_codes
+        top_stocks = df.head(limit)
+        ts_codes = top_stocks['ts_code'].tolist()
+
+        # Batch fetch quotes (uses cache)
+        quotes = _get_stock_quotes_batch(ts_codes, today)
+
         results = []
-        for _, row in df.head(limit).iterrows():
+        for _, row in top_stocks.iterrows():
             ts_code = row.get('ts_code', '')
             code = ts_code.split('.')[0] if '.' in ts_code else ts_code
+
+            # Get quote data from cache
+            quote = quotes.get(ts_code, {})
+
             results.append({
                 "code": code,
                 "name": name_map.get(ts_code, ''),
-                "price": None,  # Not available in this API
-                "change_pct": None,
+                "price": quote.get("price"),
+                "change_pct": quote.get("change_pct"),
                 "net_inflow": float(row.get('net_mf_amount', 0)) if row.get('net_mf_amount') else None,
                 "net_ratio": float(row.get('net_mf_vol', 0)) if row.get('net_mf_vol') else None,
             })
