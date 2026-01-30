@@ -34,6 +34,27 @@
       "enabled": true,
       "trigger": "/react",
       "instructions": "When working with React components:\n1. Follow React 18 best practices:\n   - Use functional components with hooks\n   - Implement proper error boundaries\n   - Optimize re-renders (useMemo, useCallback)\n   - Follow component composition patterns\n2. For this project (Vite + React):\n   - Keep components in web/src/components/\n   - Use Lucide React for icons (already installed)\n   - Maintain consistent styling approach\n   - Handle loading and error states\n3. When creating components:\n   - Props validation with PropTypes or TypeScript\n   - Meaningful component and prop names\n   - Extract reusable logic to custom hooks\n   - Keep components focused (single responsibility)\n4. Data fetching:\n   - Use existing dataCache.js service\n   - Implement proper loading states\n   - Handle errors gracefully\n   - Consider implementing SWR pattern\n5. Performance:\n   - Lazy load heavy components\n   - Virtualize long lists\n   - Optimize bundle size (code splitting)"
+    },
+    {
+      "name": "deploy-azure",
+      "description": "Deploy to Azure App Service and monitor deployment status",
+      "enabled": true,
+      "trigger": "/deploy",
+      "instructions": "When the user asks to deploy to Azure:\n1. Check current git status - ensure working directory is clean\n2. Verify latest commit is pushed to main branch\n3. Check GitHub Actions workflow status:\n   - gh run list --workflow=main_littleredflower.yml --limit 5\n   - gh run watch (if deployment in progress)\n4. Monitor deployment:\n   - Show build job status\n   - Show frontend build output\n   - Show Azure deployment status\n5. After deployment:\n   - Provide deployment URL: https://littleredflower.azurewebsites.net\n   - Suggest testing critical endpoints\n   - Check for any deployment errors\n6. Troubleshooting:\n   - Check Azure App Service logs if needed\n   - Verify environment variables\n   - Check Python/Node versions match workflow"
+    },
+    {
+      "name": "check-ci",
+      "description": "Check GitHub Actions CI/CD status and logs",
+      "enabled": true,
+      "trigger": "/ci",
+      "instructions": "When the user asks about CI/CD status:\n1. List recent workflow runs:\n   - gh run list --limit 10\n2. Show details of latest run:\n   - gh run view --log (if failed)\n3. Analyze failures:\n   - Identify which job failed (build or deploy)\n   - Extract error messages\n   - Suggest fixes based on error type\n4. For this project, common issues:\n   - Frontend build failures (npm ci, npm run build)\n   - Python dependency issues\n   - Azure deployment timeout\n   - Missing secrets/env variables\n5. Provide actionable next steps"
+    },
+    {
+      "name": "validate-data",
+      "description": "Validate financial data sources and API responses",
+      "enabled": true,
+      "trigger": "/validate",
+      "instructions": "When the user asks to validate data:\n1. Check data source availability:\n   - Test AkShare endpoints\n   - Test yfinance for US stocks\n   - Verify Tushare Pro token (if configured)\n2. Validate API responses:\n   - Check /api/sentiment endpoint\n   - Check /api/us-tech/latest\n   - Check /api/market/radar\n   - Verify response structure matches Pydantic models\n3. Cache validation:\n   - Check cache hit rates\n   - Verify cache expiration logic\n   - Test cache invalidation\n4. Data quality checks:\n   - Verify data completeness (no missing fields)\n   - Check data freshness (timestamps)\n   - Validate data ranges (prices > 0, percentages -100 to 100)\n5. Performance metrics:\n   - Measure API response times\n   - Check concurrent request handling\n   - Verify timeout protection works\n6. Report findings with specific suggestions"
     }
   ]
 }
