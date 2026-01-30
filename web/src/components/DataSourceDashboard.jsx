@@ -67,10 +67,18 @@ const DataSourceDashboard = () => {
     setSelectedDate(date);
 
     try {
-      const res = await fetch(`/api/reports/${date}?type=${type}`);
+      // Use optimized /data endpoint for faster loading
+      const res = await fetch(`/api/reports/${date}/data?type=${type}`);
       if (!res.ok) throw new Error('Report not found');
       const data = await res.json();
-      setCurrentReport(data);
+
+      // Transform to match expected structure
+      setCurrentReport({
+        date: data.date,
+        type: data.type,
+        created_at: data.created_at,
+        parsed_data: data.data // Pre-parsed data from backend
+      });
     } catch (err) {
       setError(err.message);
       setCurrentReport(null);
@@ -101,12 +109,22 @@ const DataSourceDashboard = () => {
 
   // Parse the raw data
   const parsedData = useMemo(() => {
-    if (!currentReport || !currentReport.raw_data) {
+    if (!currentReport) {
       return null;
     }
-    // Merge report's sentiment if available, otherwise use fetched sentiment
-    const reportSentiment = currentReport.sentiment || sentiment;
-    return parseRawData(currentReport.raw_data, reportSentiment);
+
+    // If backend already provided parsed data, use it directly
+    if (currentReport.parsed_data) {
+      return currentReport.parsed_data;
+    }
+
+    // Fallback: parse raw_data on frontend (legacy support)
+    if (currentReport.raw_data) {
+      const reportSentiment = currentReport.sentiment || sentiment;
+      return parseRawData(currentReport.raw_data, reportSentiment);
+    }
+
+    return null;
   }, [currentReport, sentiment]);
 
   // Skeleton loading component
