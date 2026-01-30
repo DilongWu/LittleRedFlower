@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import ReportViewer from './components/ReportViewer';
 import SourceDataViewer from './components/SourceDataViewer';
 import SentimentDashboard from './components/SentimentDashboard';
-import MarketRadar from './components/MarketRadar';
+import DataSourceDashboard from './components/DataSourceDashboard';
 import StockDiagnosis from './components/StockDiagnosis';
 import IndexOverview from './components/IndexOverview';
 import FundFlowRank from './components/FundFlowRank';
@@ -322,7 +322,7 @@ function App() {
         )}
 
           {activeTab === 'radar' && (
-            <MarketRadar />
+            <DataSourceDashboard />
           )}
 
           {activeTab === 'diagnosis' ? (
