@@ -508,6 +508,7 @@ body {
     margin-top: 10px;
     padding-top: 10px;
     border-top: 1px solid #eee;
+    position: relative;
   }
 
   .sidebar-footer > p {
@@ -517,6 +518,7 @@ body {
   /* Make data source selector mobile-friendly */
   .data-source-selector {
     position: relative;
+    z-index: auto; /* Don't interfere with fixed modal */
   }
 
   .data-source-toggle {
@@ -524,12 +526,16 @@ body {
     justify-content: center !important;
   }
 
-  .data-source-dropdown {
-    left: 0 !important;
-    right: 0 !important;
-    width: calc(100vw - 30px) !important;
-    max-width: 400px !important;
-    margin: 0 auto !important;
+  /* Mobile modal should be centered in viewport */
+  @media screen and (max-width: 768px) {
+    .data-source-dropdown {
+      /* These will be overridden by inline styles, but provide fallback */
+      position: fixed !important;
+      top: 50vh !important;
+      left: 50vw !important;
+      transform: translate(-50%, -50%) !important;
+      z-index: 10000 !important;
+    }
   }
 
   .main-content {

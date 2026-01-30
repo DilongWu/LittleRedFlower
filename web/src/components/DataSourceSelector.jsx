@@ -182,7 +182,7 @@ function DataSourceSelector() {
                 right: 0,
                 bottom: 0,
                 background: 'rgba(0,0,0,0.5)',
-                zIndex: 999
+                zIndex: 9998
               }}
               onClick={() => setShowSelector(false)}
             />
@@ -192,8 +192,8 @@ function DataSourceSelector() {
             className="data-source-dropdown"
             style={{
               position: isMobile ? 'fixed' : 'absolute',
-              top: isMobile ? '50%' : '100%',
-              left: isMobile ? '50%' : 'auto',
+              top: isMobile ? '50vh' : '100%',
+              left: isMobile ? '50vw' : 'auto',
               right: isMobile ? 'auto' : 0,
               transform: isMobile ? 'translate(-50%, -50%)' : 'none',
               marginTop: isMobile ? 0 : '4px',
@@ -202,11 +202,14 @@ function DataSourceSelector() {
               borderRadius: '12px',
               padding: isMobile ? '20px' : '12px',
               boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
-              zIndex: 1000,
-              minWidth: isMobile ? '90vw' : '320px',
+              zIndex: 9999,
+              width: isMobile ? '90vw' : 'auto',
+              minWidth: isMobile ? '0' : '320px',
               maxWidth: isMobile ? '90vw' : '400px',
-              maxHeight: '80vh',
-              overflowY: 'auto'
+              maxHeight: isMobile ? '85vh' : '80vh',
+              overflowY: 'auto',
+              // Prevent iOS Safari scroll issues
+              WebkitOverflowScrolling: 'touch'
             }}
           >
             <div style={{
