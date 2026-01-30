@@ -16,6 +16,7 @@ from api.services.fund_flow import get_fund_flow_rank
 from api.services.concepts import get_hot_concepts
 from api.services.data_source import get_data_source, set_data_source, test_data_source, get_tushare_token, set_tushare_token, VALID_DATA_SOURCES
 from api.services.http_client import close_session
+from api.services.chat import chat_service
 
 class LoginRequest(BaseModel):
     username: str
@@ -331,6 +332,69 @@ async def get_dashboard_all():
         "fund_flow": safe_result(results[2], {"data": []}),
         "concepts": safe_result(results[3], {"data": []}),
     }
+
+# AI Chat Assistant Endpoint
+@app.post("/api/chat")
+async def chat_endpoint(request: dict):
+    """Chat with market-aware AI assistant"""
+    try:
+        user_message = request.get("message", "")
+        history = request.get("history", [])
+
+        if not user_message:
+            raise HTTPException(status_code=400, detail="消息不能为空")
+
+        # Fetch market context
+        market_context = {}
+
+        # Try to get sentiment data
+        try:
+            import datetime
+            today = datetime.datetime.now().strftime("%Y-%m-%d")
+            sentiment_file = os.path.join(STORAGE_DIR, f"{today}_sentiment.json")
+
+            if os.path.exists(sentiment_file):
+                with open(sentiment_file, "r", encoding="utf-8") as f:
+                    sentiment_data = json.load(f)
+                    market_context["sentiment"] = sentiment_data
+        except Exception:
+            pass
+
+        # Try to get index data
+        try:
+            indexes = get_index_overview()
+            if indexes:
+                market_context["indexes"] = indexes[:3]  # Top 3 indexes
+        except Exception:
+            pass
+
+        # Convert history to proper format
+        conversation = []
+        if history:
+            for msg in history[-10:]:  # Last 10 messages
+                if isinstance(msg, dict) and "role" in msg and "content" in msg:
+                    # Filter out error messages from history
+                    if msg.get("role") != "error":
+                        conversation.append({
+                            "role": msg["role"],
+                            "content": msg["content"]
+                        })
+
+        # Get AI response
+        response_text = chat_service.get_response(
+            user_message=user_message,
+            conversation_history=conversation,
+            market_context=market_context
+        )
+
+        return {
+            "response": response_text,
+            "role": "assistant"
+        }
+
+    except Exception as e:
+        print(f"Chat endpoint error: {e}")
+        raise HTTPException(status_code=500, detail="抱歉，发生了错误，请稍后重试。")
 
 # Serve Frontend Static Files (After API routes to avoid conflict)
 # In production, we assume 'web/dist' exists

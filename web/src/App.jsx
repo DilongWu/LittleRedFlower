@@ -9,6 +9,7 @@ import FundFlowRank from './components/FundFlowRank';
 import HotConcepts from './components/HotConcepts';
 import RiskAlerts from './components/RiskAlerts';
 import DataSourceSelector from './components/DataSourceSelector';
+import ChatAssistant from './components/ChatAssistant';
 import { prefetchDashboardData } from './services/dataCache';
 import { Calendar, FileText, Activity, LogOut, RefreshCw, Play, BarChart, Radar, Stethoscope, LineChart, Waves, Flame, ShieldAlert } from 'lucide-react';
 import './Login.css';
@@ -418,6 +419,9 @@ function App() {
           </>
         )}
       </div>
+
+      {/* AI Chat Assistant - Available on all pages */}
+      {isAuthenticated && <ChatAssistant />}
     </div>
   );
 }
