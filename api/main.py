@@ -17,6 +17,7 @@ from api.services.concepts import get_hot_concepts
 from api.services.data_source import get_data_source, set_data_source, test_data_source, get_tushare_token, set_tushare_token, VALID_DATA_SOURCES
 from api.services.http_client import close_session
 from api.services.chat import chat_service
+from api.services.us_stocks import get_us_tech_overview, save_us_tech_data, load_us_tech_data
 
 class LoginRequest(BaseModel):
     username: str
@@ -226,6 +227,44 @@ async def concept_hot():
     if isinstance(result, dict) and result.get("error"):
         raise HTTPException(status_code=400, detail=result["error"])
     return result
+
+@app.get("/api/us-tech/latest")
+async def get_us_tech():
+    """Get latest US tech stocks data (with cache support)."""
+    try:
+        # 首先尝试从缓存/文件加载
+        cached_data = load_us_tech_data()
+        if cached_data:
+            return cached_data
+
+        # 如果没有缓存，实时获取（使用内存缓存）
+        data = get_us_tech_overview(use_cache=True, max_workers=5)
+        return data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取美股数据失败: {str(e)}")
+
+@app.post("/api/trigger/us-tech")
+async def trigger_us_tech(background_tasks: BackgroundTasks):
+    """Manual trigger for US tech stocks data generation (Background Task)."""
+    def generate_us_tech():
+        data = get_us_tech_overview(use_cache=False, max_workers=5)
+        save_us_tech_data(data)
+
+    background_tasks.add_task(generate_us_tech)
+    return {"status": "triggered", "message": "美股科技股数据生成已启动（后台任务）"}
+
+@app.delete("/api/us-tech/cache")
+async def clear_us_tech_cache():
+    """Clear US tech stocks cache."""
+    from api.services.us_stocks import clear_cache
+    clear_cache()
+    return {"status": "success", "message": "美股数据缓存已清空"}
+
+@app.get("/api/us-tech/cache/stats")
+async def get_us_tech_cache_stats():
+    """Get US tech stocks cache statistics."""
+    from api.services.us_stocks import get_cache_stats
+    return get_cache_stats()
 
 @app.get("/api/datasource")
 async def get_datasource():

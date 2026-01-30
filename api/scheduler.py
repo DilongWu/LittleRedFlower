@@ -117,6 +117,29 @@ async def job_warmup_cache():
         logger.error(f"Cache warmup job failed: {e}")
 
 
+async def job_generate_us_tech():
+    """
+    Generate US tech stocks data report.
+    Runs at 5:30 AM Beijing time (after US market closes at 4:00 PM ET).
+    """
+    logger.info("Starting US Tech Stocks Data Generation Job...")
+    try:
+        import asyncio
+        from api.services.us_stocks import get_us_tech_overview, save_us_tech_data
+
+        loop = asyncio.get_running_loop()
+
+        # 获取美股数据（不使用缓存，强制刷新）
+        data = await loop.run_in_executor(None, lambda: get_us_tech_overview(use_cache=False, max_workers=5))
+
+        # 保存数据
+        save_us_tech_data(data)
+
+        logger.info(f"US Tech Stocks Data Generation Completed. Success: {data['summary']['success']}/{data['summary']['total']}")
+    except Exception as e:
+        logger.error(f"US Tech Stocks Data Generation Failed: {e}")
+
+
 def start_scheduler():
     # 每天早上 08:00 生成日报 (周二到周六，对应周一到周五的交易日)
     # Cron: minute=0, hour=8, day_of_week='tue-sat'
@@ -152,8 +175,18 @@ def start_scheduler():
         replace_existing=True
     )
 
+    # 美股数据生成：周二到周六 05:30（美东时间前一日收盘后，对应周一到周五的交易日）
+    # 美股交易时间：美东 9:30-16:00，对应北京时间 22:30-次日5:00（冬令时）或 21:30-次日4:00（夏令时）
+    # 我们选择北京时间 5:30 生成，确保美股收盘后数据可用
+    scheduler.add_job(
+        job_generate_us_tech,
+        CronTrigger(hour=5, minute=30, day_of_week='tue-sat'),
+        id="us_tech_daily",
+        replace_existing=True
+    )
+
     scheduler.start()
-    logger.info("Scheduler started with daily/weekly reports and cache warmup jobs.")
+    logger.info("Scheduler started with daily/weekly reports, cache warmup, and US tech stocks jobs.")
 
 def shutdown_scheduler():
     scheduler.shutdown()

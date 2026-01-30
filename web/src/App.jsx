@@ -10,8 +10,9 @@ import HotConcepts from './components/HotConcepts';
 import RiskAlerts from './components/RiskAlerts';
 import DataSourceSelector from './components/DataSourceSelector';
 import ChatAssistant from './components/ChatAssistant';
+import USTechStocks from './components/USTechStocks';
 import { prefetchDashboardData } from './services/dataCache';
-import { Calendar, FileText, Activity, LogOut, RefreshCw, Play, BarChart, Radar, Stethoscope, LineChart, Waves, Flame, ShieldAlert } from 'lucide-react';
+import { Calendar, FileText, Activity, LogOut, RefreshCw, Play, BarChart, Radar, Stethoscope, LineChart, Waves, Flame, ShieldAlert, DollarSign } from 'lucide-react';
 import './Login.css';
 
 function App() {
@@ -287,6 +288,15 @@ function App() {
           </div>
 
           <div
+            className={`nav-item ${activeTab === 'ustech' ? 'active' : ''}`}
+            onClick={() => setActiveTab('ustech')}
+            title="美股科技"
+          >
+            <DollarSign size={18} />
+            <span>美股科技 (US Tech)</span>
+          </div>
+
+          <div
              className="nav-item"
              onClick={handleLogout}
              style={{color: '#d32f2f'}}
@@ -333,6 +343,10 @@ function App() {
 
           {activeTab === 'risk' ? (
             <RiskAlerts />
+          ) : null}
+
+          {activeTab === 'ustech' ? (
+            <USTechStocks />
           ) : null}
 
           {(activeTab === 'daily' || activeTab === 'weekly') && (
