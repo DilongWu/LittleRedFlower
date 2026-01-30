@@ -1,0 +1,39 @@
+{
+  "skills": [
+    {
+      "name": "commit",
+      "description": "Generate professional Git commit messages following conventional commit standards",
+      "enabled": true,
+      "trigger": "/commit",
+      "instructions": "When the user asks to commit changes, analyze the git diff and staged changes, then generate a clear, concise commit message following these rules:\n1. Use conventional commit format: type(scope): subject\n2. Types: feat, fix, docs, style, refactor, test, chore\n3. Keep subject under 72 characters\n4. Include detailed body if changes are complex\n5. List breaking changes if any\n6. Add Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\n\nFor this project:\n- Use Chinese for A-share related features (A股晨报、市场数据等)\n- Use English for technical changes (API, refactoring, etc.)\n- Mention specific services if modified (e.g., us_stocks.py, generator.py)"
+    },
+    {
+      "name": "test",
+      "description": "Run tests for Python FastAPI backend and verify functionality",
+      "enabled": true,
+      "trigger": "/test",
+      "instructions": "When the user asks to run tests:\n1. Identify test files matching the pattern test_*.py\n2. Run pytest with appropriate flags:\n   - pytest -v for verbose output\n   - pytest --cov=api for coverage report\n   - pytest -k <keyword> for specific tests\n3. For this project, focus on:\n   - API endpoint tests (main.py routes)\n   - Data source tests (akshare, yfinance)\n   - Service layer tests (services/*.py)\n   - Cache mechanism tests\n4. Analyze failures and suggest fixes\n5. Report coverage statistics"
+    },
+    {
+      "name": "review-pr",
+      "description": "Perform automated code review on pull requests",
+      "enabled": true,
+      "trigger": "/review-pr",
+      "instructions": "When the user asks to review a PR:\n1. Fetch PR details using gh CLI: gh pr view <number>\n2. Analyze changes focusing on:\n   - API endpoint modifications (breaking changes?)\n   - Data source logic (error handling?)\n   - Cache invalidation correctness\n   - Azure OpenAI usage (cost implications?)\n   - Security issues (API keys, credentials)\n3. Check for:\n   - Missing tests for new features\n   - Outdated documentation\n   - Performance regressions\n4. Provide actionable feedback with code suggestions\n5. Highlight critical issues vs nice-to-haves"
+    },
+    {
+      "name": "fastapi-helper",
+      "description": "Assist with FastAPI development best practices",
+      "enabled": true,
+      "trigger": "/fastapi",
+      "instructions": "When working with FastAPI code:\n1. Follow FastAPI best practices:\n   - Use Pydantic models for request/response validation\n   - Implement proper dependency injection\n   - Add OpenAPI documentation (summary, description, tags)\n   - Use async/await for I/O operations\n2. For this project:\n   - Maintain consistent error responses (HTTPException)\n   - Add proper CORS configuration\n   - Implement request/response logging\n   - Use APIRouter for modularity\n3. When creating new endpoints:\n   - Add to appropriate router\n   - Include comprehensive docstrings\n   - Add example responses\n   - Consider rate limiting for expensive operations\n4. Security checklist:\n   - Validate all inputs\n   - Sanitize user data\n   - Check authentication/authorization\n   - Don't expose sensitive info in errors"
+    },
+    {
+      "name": "react-helper",
+      "description": "Assist with React 18 development and best practices",
+      "enabled": true,
+      "trigger": "/react",
+      "instructions": "When working with React components:\n1. Follow React 18 best practices:\n   - Use functional components with hooks\n   - Implement proper error boundaries\n   - Optimize re-renders (useMemo, useCallback)\n   - Follow component composition patterns\n2. For this project (Vite + React):\n   - Keep components in web/src/components/\n   - Use Lucide React for icons (already installed)\n   - Maintain consistent styling approach\n   - Handle loading and error states\n3. When creating components:\n   - Props validation with PropTypes or TypeScript\n   - Meaningful component and prop names\n   - Extract reusable logic to custom hooks\n   - Keep components focused (single responsibility)\n4. Data fetching:\n   - Use existing dataCache.js service\n   - Implement proper loading states\n   - Handle errors gracefully\n   - Consider implementing SWR pattern\n5. Performance:\n   - Lazy load heavy components\n   - Virtualize long lists\n   - Optimize bundle size (code splitting)"
+    }
+  ]
+}
