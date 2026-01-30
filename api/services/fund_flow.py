@@ -1,5 +1,6 @@
 import datetime
 import math
+import logging
 
 from api.services.data_source import get_data_source, fetch_with_fallback
 from api.services.cache import get_cache, set_cache
@@ -29,9 +30,48 @@ def _get_fund_flow_tushare(limit):
     return tushare_client.get_fund_flow_rank(limit)
 
 
-def _get_fund_flow_eastmoney(ak, limit):
-    """Get fund flow data from Eastmoney via AkShare."""
-    df = fetch_with_retry(ak.stock_individual_fund_flow_rank, max_retries=2)
+def _get_fund_flow_eastmoney_lite(ak, limit):
+    """
+    Get fund flow data using lightweight industry board interface.
+    Uses stock_board_industry_name_em which only requires 1 request instead of 53.
+    """
+    try:
+        # Get industry board data (1 request only!)
+        df = fetch_with_retry(ak.stock_board_industry_name_em, max_retries=3)
+
+        if df is None or df.empty:
+            return None
+
+        # Sort by net inflow and get top N
+        if '涨跌幅' in df.columns:
+            df = df.sort_values(by='涨跌幅', ascending=False)
+
+        result = []
+        for _, row in df.head(limit).iterrows():
+            # Map board data to expected format
+            result.append({
+                "code": "",  # Boards don't have codes
+                "name": row.get('板块名称', ''),
+                "price": None,  # Boards don't have price
+                "change_pct": _clean_float(row.get('涨跌幅', None)),
+                "net_inflow": row.get('领涨股票', '-'),  # Use lead stock as placeholder
+                "net_ratio": f"{_clean_float(row.get('涨跌幅', 0)):.2f}%" if row.get('涨跌幅') else '-',
+            })
+
+        logging.info(f"Successfully fetched {len(result)} industry boards")
+        return result
+
+    except Exception as e:
+        logging.error(f"Error in _get_fund_flow_eastmoney_lite: {e}")
+        return None
+
+
+def _get_fund_flow_eastmoney_legacy(ak, limit):
+    """
+    Legacy method using stock_individual_fund_flow_rank (requires 53 requests).
+    Keep as fallback but not recommended.
+    """
+    df = fetch_with_retry(ak.stock_individual_fund_flow_rank, max_retries=2, indicator='今日')
 
     if df is not None and not df.empty:
         cols = df.columns
@@ -77,8 +117,11 @@ def _get_fund_flow_sina(ak, limit):
     return None
 
 
-def get_fund_flow_rank(limit: int = 30):
-    """Get fund flow rank with caching and automatic fallback between data sources."""
+def get_fund_flow_rank(limit: int = 20):
+    """
+    Get fund flow rank with caching and automatic fallback between data sources.
+    Optimized to use lightweight industry board data (1 request instead of 53).
+    """
     import akshare as ak
 
     current_source = get_data_source()
@@ -90,9 +133,10 @@ def get_fund_flow_rank(limit: int = 30):
         return cached_data
 
     # Build fetch functions for each source
+    # Priority: Use lite version for eastmoney to avoid 53 requests
     fetch_funcs = {
         "tushare": lambda: _get_fund_flow_tushare(limit),
-        "eastmoney": lambda: _get_fund_flow_eastmoney(ak, limit),
+        "eastmoney": lambda: _get_fund_flow_eastmoney_lite(ak, limit),  # Use lite version!
         "sina": lambda: _get_fund_flow_sina(ak, limit),
     }
 
@@ -103,16 +147,34 @@ def get_fund_flow_rank(limit: int = 30):
         data = {
             "date": datetime.datetime.now().strftime("%Y%m%d"),
             "data_source": source_used or current_source,
-            "data": result
+            "data": result,
+            "note": "显示TOP行业板块（优化版，1次请求）"  # Add note
         }
-        set_cache(cache_key, data, 600)  # 10 minutes (increased from 5)
+        set_cache(cache_key, data, 1800)  # 30 minutes (increased from 10)
         return data
+
+    # Fallback: Try legacy method as last resort
+    logging.warning("Lite method failed, trying legacy method...")
+    try:
+        legacy_result = _get_fund_flow_eastmoney_legacy(ak, limit)
+        if legacy_result:
+            data = {
+                "date": datetime.datetime.now().strftime("%Y%m%d"),
+                "data_source": "eastmoney_legacy",
+                "data": legacy_result,
+                "note": "个股资金流向（降级方案）"
+            }
+            set_cache(cache_key, data, 1800)  # 30 minutes
+            return data
+    except Exception as e:
+        logging.error(f"Legacy method also failed: {e}")
 
     # Return empty data
     empty_data = {
         "date": datetime.datetime.now().strftime("%Y%m%d"),
         "data_source": "error",
-        "data": []
+        "data": [],
+        "note": "数据获取失败，请稍后重试"
     }
-    set_cache(cache_key, empty_data, 120)  # 2 minutes for errors (increased from 1)
+    set_cache(cache_key, empty_data, 120)  # 2 minutes for errors
     return empty_data

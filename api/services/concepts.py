@@ -29,13 +29,14 @@ def _get_concepts_tushare(limit):
 
 
 def _get_concepts_eastmoney(ak, limit):
-    """Get hot concepts from Eastmoney with retry."""
+    """Get hot concepts from Eastmoney with retry and limit."""
     df = fetch_with_retry(ak.stock_board_concept_name_em, max_retries=3)
     if df is None or df.empty:
         return None
 
     data = []
-    for _, row in df.iterrows():
+    # Only process top N to reduce data size
+    for _, row in df.head(limit * 2).iterrows():  # Get 2x to have buffer after sorting
         name = row.get("板块名称", "")
         change = _clean_float(row.get("涨跌幅", 0))
         lead = row.get("领涨股票", "")
@@ -45,6 +46,7 @@ def _get_concepts_eastmoney(ak, limit):
             "lead": lead,
         })
 
+    # Sort by change and return top N
     data_sorted = sorted(data, key=lambda x: (x.get("change") or 0), reverse=True)
     return data_sorted[:limit]
 
@@ -93,8 +95,11 @@ def _get_concepts_sina(ak, limit):
         return None
 
 
-def get_hot_concepts(limit: int = 20):
-    """Get hot concepts with caching and automatic fallback between data sources."""
+def get_hot_concepts(limit: int = 15):
+    """
+    Get hot concepts with caching and automatic fallback between data sources.
+    Optimized to only return top N concepts for better performance.
+    """
     import akshare as ak
 
     current_source = get_data_source()
@@ -119,16 +124,18 @@ def get_hot_concepts(limit: int = 20):
         data = {
             "date": datetime.datetime.now().strftime("%Y%m%d"),
             "data_source": source_used or current_source,
-            "data": result
+            "data": result,
+            "note": f"显示TOP {len(result)} 热门题材"
         }
-        set_cache(cache_key, data, 600)  # 10 minutes (increased from 5)
+        set_cache(cache_key, data, 1800)  # 30 minutes (increased from 10)
         return data
 
     # Return empty data and cache for short time
     empty_data = {
         "date": datetime.datetime.now().strftime("%Y%m%d"),
         "data_source": "error",
-        "data": []
+        "data": [],
+        "note": "数据获取失败，请稍后重试"
     }
-    set_cache(cache_key, empty_data, 120)  # 2 minutes for errors (increased from 1)
+    set_cache(cache_key, empty_data, 120)  # 2 minutes for errors
     return empty_data
