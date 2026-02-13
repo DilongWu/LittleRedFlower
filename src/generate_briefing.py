@@ -641,9 +641,9 @@ def generate_briefing(news_content, report_type="daily"):
     date_str_header = datetime.datetime.now().strftime("%Y%m%d")
     
     if report_type == "weekly":
-        title_text = "睿组合小红花周报"
+        title_text = "小红花周报"
         prompt_role = "上周"
-        prompt_style = "睿组合小红花周报"
+        prompt_style = "小红花周报"
         section1_title = "上周市场全景回顾"
         section1_desc = "总结上周指数整体表现（涨跌幅），成交量变化趋势。概括上周的主线行情和风格切换。请务必使用“上周”作为时间状语。"
         section2_title = "深度逻辑与复盘"
@@ -653,9 +653,9 @@ def generate_briefing(news_content, report_type="daily"):
         section4_title = "后市展望与策略建议"
         section4_desc = "给出对本周市场的判断。给出具体操作建议。"
     else:
-        title_text = "睿组合小红花晨讯"
+        title_text = "小红花晨讯"
         prompt_role = "昨日"
-        prompt_style = "睿组合小红花晨讯"
+        prompt_style = "小红花晨讯"
         section1_title = "市场全景回顾"
         section1_desc = "描述昨日指数表现（涨跌幅）、成交金额及变化（必须提及具体数值）、市场情绪（如“普涨”、“分化”、“修复”）。概括领涨和领跌的板块。请务必使用“昨日”作为时间状语。"
         section2_title = "市场深度逻辑分析"
@@ -717,7 +717,7 @@ def generate_briefing(news_content, report_type="daily"):
     <br>
     <table style="width: 100%; border: none; color: blue; font-weight: bold; font-size: 14px;">
         <tr>
-            <td style="text-align: left;">• 订阅路径：易淘金APP-投顾-睿组合-睿组合xx号 (小红花)</td>
+            <td style="text-align: left;">• 订阅路径：易淘金APP-投顾--xx号 (小红花)</td>
             <td style="text-align: right;">• 股市有风险，投资需谨慎，组合建议仅供参考</td>
         </tr>
     </table>
@@ -795,7 +795,7 @@ def save_html(content, filename):
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>睿组合小红花晨讯</title>
+        <title>小红花晨讯</title>
         <style>
             body {{
                 font-family: "Microsoft YaHei", "SimHei", sans-serif;
@@ -834,7 +834,7 @@ def save_html(content, filename):
     print(f"晨训 HTML 已生成: {filename}")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="生成睿组合小红花晨讯/周报")
+    parser = argparse.ArgumentParser(description="生成小红花晨讯/周报")
     parser.add_argument("--type", choices=["daily", "weekly"], default="daily", help="报告类型: daily (日报) 或 weekly (周报)")
     args = parser.parse_args()
     

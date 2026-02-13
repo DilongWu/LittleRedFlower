@@ -167,7 +167,7 @@ function App() {
         <div className="login-card">
           <div className="sidebar-header" style={{justifyContent: 'center', marginBottom: '20px'}}>
              <Activity color="#d32f2f" size={32} />
-             <span style={{fontSize: '1.5rem'}}>睿组合小红花</span>
+             <span style={{fontSize: '1.5rem'}}>小红花</span>
           </div>
           <h2 className="login-title">请登录</h2>
           <form className="login-form" onSubmit={handleLogin}>
@@ -202,7 +202,7 @@ function App() {
       <div className="sidebar">
         <div className="sidebar-header">
           <Activity color="#d32f2f" />
-          <span>睿组合小红花</span>
+          <span>小红花</span>
         </div>
 
         <div className="mobile-nav-scroll">
