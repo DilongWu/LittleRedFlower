@@ -36,6 +36,10 @@ US_TECH_STOCKS = {
 CACHE_DURATION = 3600  # 1小时缓存
 _memory_cache = {}  # 内存缓存
 
+# 市值独立缓存（24小时有效，市值变化不大）
+_market_cap_cache = {}  # {symbol: (market_cap_value, timestamp)}
+_MARKET_CAP_CACHE_DURATION = 86400  # 24 hours
+
 
 def get_stock_data(symbol: str, use_cache: bool = True) -> Optional[Dict]:
     """
@@ -163,37 +167,182 @@ def _format_market_cap(market_cap: float) -> str:
 
 def get_us_tech_overview(use_cache: bool = True, max_workers: int = 5) -> Dict:
     """
-    获取所有科技股的概览数据（并发优化）
+    获取所有科技股的概览数据（批量下载优化）
     Args:
         use_cache: 是否使用缓存
-        max_workers: 最大并发线程数
+        max_workers: 最大并发线程数（用于获取 market_cap 等补充数据）
     """
-    logger.info(f"开始获取美股科技股数据（并发模式，workers={max_workers}）...")
+    logger.info(f"开始获取美股科技股数据...")
     start_time = time.time()
 
     stocks_data = []
+    symbols = list(US_TECH_STOCKS.keys())
 
-    # 使用线程池并发获取数据
+    # Check if all symbols are cached
+    if use_cache:
+        all_cached = True
+        for symbol in symbols:
+            if symbol not in _memory_cache:
+                all_cached = False
+                break
+            cache_data, cache_time = _memory_cache[symbol]
+            if datetime.now() - cache_time >= timedelta(seconds=CACHE_DURATION):
+                all_cached = False
+                break
+
+        if all_cached:
+            logger.info("所有股票均命中缓存")
+            for symbol in symbols:
+                cache_data, _ = _memory_cache[symbol]
+                cache_data_copy = dict(cache_data)
+                cache_data_copy['from_cache'] = True
+                stocks_data.append(cache_data_copy)
+            return _build_overview_result(stocks_data, start_time)
+
+    # Batch download all tickers at once (single request to yfinance)
+    try:
+        logger.info(f"批量下载 {len(symbols)} 只股票数据...")
+        tickers_str = " ".join(symbols)
+        hist_data = yf.download(tickers_str, period="30d", group_by="ticker", threads=True, timeout=20)
+
+        if hist_data is not None and not hist_data.empty:
+            for symbol in symbols:
+                try:
+                    # Extract per-symbol data from the batch result
+                    if len(symbols) > 1:
+                        sym_hist = hist_data[symbol].dropna(how='all')
+                    else:
+                        sym_hist = hist_data.dropna(how='all')
+
+                    if sym_hist.empty or len(sym_hist) < 2:
+                        logger.warning(f"{symbol} 批量下载数据不足")
+                        stocks_data.append(_get_cached_or_error(symbol))
+                        continue
+
+                    latest = sym_hist.iloc[-1]
+                    prev = sym_hist.iloc[-2]
+
+                    current_price = float(latest['Close'])
+                    prev_close = float(prev['Close'])
+                    change = current_price - prev_close
+                    change_percent = (change / prev_close) * 100
+
+                    trend_data = sym_hist['Close'].tolist()
+
+                    stock_info = US_TECH_STOCKS.get(symbol, {"name": symbol, "name_en": symbol, "emoji": "📊"})
+
+                    result = {
+                        "symbol": symbol,
+                        "name": stock_info["name"],
+                        "name_en": stock_info["name_en"],
+                        "emoji": stock_info.get("emoji", "📊"),
+                        "price": round(current_price, 2),
+                        "change": round(change, 2),
+                        "change_percent": round(change_percent, 2),
+                        "open": round(float(latest['Open']), 2),
+                        "high": round(float(latest['High']), 2),
+                        "low": round(float(latest['Low']), 2),
+                        "close": round(float(latest['Close']), 2),
+                        "volume": int(latest['Volume']),
+                        "volume_str": f"{int(latest['Volume']/1000000)}M" if latest['Volume'] > 1000000 else f"{int(latest['Volume']/1000)}K",
+                        "trend": [round(float(p), 2) for p in trend_data[-30:]],
+                        "market_cap": 0,
+                        "market_cap_str": "N/A",
+                        "updated_at": datetime.now().isoformat(),
+                        "from_cache": False,
+                        "data_source": "yahoo_finance"
+                    }
+
+                    # Cache the result
+                    _memory_cache[symbol] = (result, datetime.now())
+                    stocks_data.append(result)
+
+                except Exception as e:
+                    logger.error(f"{symbol} 解析批量数据失败: {e}")
+                    stocks_data.append(_get_cached_or_error(symbol))
+        else:
+            logger.warning("批量下载返回空数据，回退到逐个获取")
+            raise Exception("Batch download returned empty data")
+
+    except Exception as e:
+        logger.warning(f"批量下载失败: {e}，回退到逐个获取")
+        # Fallback: fetch individually with ThreadPoolExecutor
+        stocks_data = []
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_symbol = {
+                executor.submit(get_stock_data, symbol, use_cache): symbol
+                for symbol in symbols
+            }
+            for future in as_completed(future_to_symbol):
+                symbol = future_to_symbol[future]
+                try:
+                    data = future.result(timeout=15)
+                    if data:
+                        stocks_data.append(data)
+                except Exception as ex:
+                    logger.error(f"{symbol} 获取异常: {ex}")
+                    stocks_data.append(_get_cached_or_error(symbol))
+
+    # Try to enrich market_cap in background (non-critical)
+    try:
+        _enrich_market_caps(stocks_data, max_workers)
+    except Exception as e:
+        logger.warning(f"市值数据补充失败（不影响主数据）: {e}")
+
+    return _build_overview_result(stocks_data, start_time)
+
+
+def _enrich_market_caps(stocks_data: List[Dict], max_workers: int = 3):
+    """Enrich stocks with market cap data (best effort, won't fail the main flow).
+    Uses a dedicated 24-hour cache to avoid redundant API calls."""
+    now_ts = time.time()
+    symbols_needing_cap = []
+
+    for s in stocks_data:
+        if 'error' in s:
+            continue
+        sym = s['symbol']
+        # Check dedicated market_cap cache first
+        if sym in _market_cap_cache:
+            cached_cap, cached_ts = _market_cap_cache[sym]
+            if now_ts - cached_ts < _MARKET_CAP_CACHE_DURATION:
+                s['market_cap'] = cached_cap
+                s['market_cap_str'] = _format_market_cap(cached_cap)
+                # Also update main cache
+                if sym in _memory_cache:
+                    cached, ts = _memory_cache[sym]
+                    cached['market_cap'] = cached_cap
+                    cached['market_cap_str'] = s['market_cap_str']
+                continue
+        if s.get('market_cap', 0) == 0:
+            symbols_needing_cap.append(s)
+
+    if not symbols_needing_cap:
+        return
+
+    def fetch_cap(stock):
+        try:
+            ticker = yf.Ticker(stock['symbol'])
+            info = ticker.fast_info
+            market_cap = info.last_price * info.shares if hasattr(info, 'shares') else 0
+            stock['market_cap'] = market_cap
+            stock['market_cap_str'] = _format_market_cap(market_cap)
+            # Store in dedicated market_cap cache
+            _market_cap_cache[stock['symbol']] = (market_cap, time.time())
+            # Update main cache
+            if stock['symbol'] in _memory_cache:
+                cached, ts = _memory_cache[stock['symbol']]
+                cached['market_cap'] = market_cap
+                cached['market_cap_str'] = stock['market_cap_str']
+        except Exception:
+            pass
+
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        # 提交所有任务
-        future_to_symbol = {
-            executor.submit(get_stock_data, symbol, use_cache): symbol
-            for symbol in US_TECH_STOCKS.keys()
-        }
+        list(executor.map(fetch_cap, symbols_needing_cap))
 
-        # 收集结果
-        for future in as_completed(future_to_symbol):
-            symbol = future_to_symbol[future]
-            try:
-                data = future.result(timeout=15)  # 单个股票超时15秒
-                if data:
-                    stocks_data.append(data)
-            except Exception as e:
-                logger.error(f"{symbol} 获取异常: {e}")
-                # 即使失败也添加错误占位符
-                stocks_data.append(_get_cached_or_error(symbol))
 
-    # 计算整体统计（过滤掉错误数据）
+def _build_overview_result(stocks_data: List[Dict], start_time: float) -> Dict:
+    """Build the final overview result dict from stocks data."""
     valid_stocks = [s for s in stocks_data if 'error' not in s]
 
     if valid_stocks:
@@ -202,7 +351,6 @@ def get_us_tech_overview(use_cache: bool = True, max_workers: int = 5) -> Dict:
         down_count = sum(1 for s in valid_stocks if s['change_percent'] < 0)
         flat_count = len(valid_stocks) - up_count - down_count
 
-        # 找出涨幅最大和最小的股票
         top_gainer = max(valid_stocks, key=lambda x: x['change_percent'])
         top_loser = min(valid_stocks, key=lambda x: x['change_percent'])
     else:

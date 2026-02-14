@@ -4,6 +4,7 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from fastapi import FastAPI, HTTPException, Query, BackgroundTasks, Body
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 from pydantic import BaseModel
@@ -18,6 +19,7 @@ from api.services.data_source import get_data_source, set_data_source, test_data
 from api.services.http_client import close_session
 from api.services.chat import chat_service
 from api.services.us_stocks import get_us_tech_overview, save_us_tech_data, load_us_tech_data
+from api.services.cache import get_cache, set_cache
 
 class LoginRequest(BaseModel):
     username: str
@@ -44,6 +46,9 @@ async def lifespan(app: FastAPI):
     close_session()  # Clean up HTTP connections
 
 app = FastAPI(lifespan=lifespan, title="Little Red Flower API")
+
+# GZip compression (reduces transfer size for JSON responses)
+app.add_middleware(GZipMiddleware, minimum_size=500)
 
 # CORS
 app.add_middleware(
@@ -396,7 +401,13 @@ async def get_dashboard_all():
     """
     Get all dashboard data in a single request (concurrent fetching).
     This reduces latency by fetching radar, index, fund flow, and concepts in parallel.
+    Uses aggregation-level cache to avoid repeated concurrent requests.
     """
+    # Check aggregation cache first
+    cached = get_cache("dashboard_all")
+    if cached is not None:
+        return cached
+
     loop = asyncio.get_event_loop()
 
     # Run all data fetching functions concurrently
@@ -417,12 +428,17 @@ async def get_dashboard_all():
             return default
         return r
 
-    return {
+    result = {
         "radar": safe_result(results[0], {"sectors": [], "ladder": {}}),
         "index": safe_result(results[1], []),
         "fund_flow": safe_result(results[2], {"data": []}),
         "concepts": safe_result(results[3], {"data": []}),
     }
+
+    # Cache the aggregated result for 5 minutes
+    set_cache("dashboard_all", result, 300)
+
+    return result
 
 # AI Chat Assistant Endpoint
 @app.post("/api/chat")

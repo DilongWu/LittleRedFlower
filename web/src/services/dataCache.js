@@ -1,5 +1,6 @@
 /**
- * Frontend data cache with automatic expiration, prefetching, timeout, and retry
+ * Frontend data cache with automatic expiration, prefetching, timeout, retry,
+ * and stale-while-revalidate support.
  */
 
 const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes (increased from 5)
@@ -71,11 +72,14 @@ async function fetchWithRetry(url, options = {}, retries = MAX_RETRIES) {
 }
 
 /**
- * Get data from cache or fetch from API
+ * Get data from cache or fetch from API.
+ * Supports stale-while-revalidate: returns stale data immediately while
+ * refreshing in the background (within a grace period).
  */
 export async function fetchWithCache(url, options = {}) {
   const cacheKey = url;
   const now = Date.now();
+  const STALE_GRACE = 5 * 60 * 1000; // 5 minutes grace period for stale data
 
   // Check if we have valid cached data
   if (cache.has(cacheKey)) {
@@ -84,7 +88,32 @@ export async function fetchWithCache(url, options = {}) {
       console.log(`[Cache HIT] ${url}`);
       return entry.data;
     }
-    // Cache expired, remove it
+
+    // Stale but within grace period: return stale data and revalidate in background
+    if (now < entry.expiresAt + STALE_GRACE) {
+      console.log(`[Cache STALE] ${url} — revalidating in background`);
+      // Background revalidate (don't await)
+      if (!pending.has(cacheKey)) {
+        const bgFetch = fetchWithRetry(url, options)
+          .then(async (res) => {
+            const data = await res.json();
+            cache.set(cacheKey, {
+              data,
+              expiresAt: Date.now() + CACHE_DURATION,
+              fetchedAt: Date.now(),
+            });
+            pending.delete(cacheKey);
+          })
+          .catch((err) => {
+            console.warn('Background refresh failed for', cacheKey, err);
+            pending.delete(cacheKey);
+          });
+        pending.set(cacheKey, bgFetch);
+      }
+      return entry.data;
+    }
+
+    // Cache fully expired, remove it
     cache.delete(cacheKey);
   }
 
@@ -171,6 +200,7 @@ export function getCacheStats() {
 
 // API endpoints to prefetch
 export const API_ENDPOINTS = {
+  DASHBOARD_ALL: '/api/dashboard/all',
   INDEX_OVERVIEW: '/api/index/overview',
   MARKET_RADAR: '/api/market/radar',
   FUND_FLOW: '/api/fund/flow',
@@ -180,14 +210,11 @@ export const API_ENDPOINTS = {
 };
 
 /**
- * Prefetch all dashboard data
+ * Prefetch all dashboard data (uses aggregated endpoint to reduce requests)
  */
 export function prefetchDashboardData() {
   prefetchAll([
-    API_ENDPOINTS.INDEX_OVERVIEW,
-    API_ENDPOINTS.MARKET_RADAR,
-    API_ENDPOINTS.FUND_FLOW,
-    API_ENDPOINTS.HOT_CONCEPTS,
+    API_ENDPOINTS.DASHBOARD_ALL,
     API_ENDPOINTS.SENTIMENT,
   ]);
 }
