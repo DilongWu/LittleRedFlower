@@ -1,0 +1,426 @@
+/* ═══════════════════════════════════════════════════════════════
+   自选股看板 — 深色硅谷风 + 毛玻璃 + 动画
+   ═══════════════════════════════════════════════════════════════ */
+
+.watchlist-page {
+  padding: 1.5rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* ── Header ────────────────────────────────────────────────────── */
+.watchlist-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.25rem;
+}
+
+.watchlist-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.watchlist-header-left h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #f1f5f9;
+}
+
+.watchlist-header-icon {
+  color: #facc15;
+}
+
+.watchlist-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.wl-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.06);
+  color: #cbd5e1;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  backdrop-filter: blur(8px);
+  transition: all 0.25s;
+}
+
+.wl-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.22);
+  color: #f1f5f9;
+}
+
+.wl-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.wl-btn .spin {
+  animation: wl-spin 1s linear infinite;
+}
+
+@keyframes wl-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Add-stock bar ─────────────────────────────────────────────── */
+.watchlist-add-bar {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.watchlist-search-input {
+  flex: 1;
+  max-width: 320px;
+  padding: 0.55rem 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.06);
+  color: #f1f5f9;
+  font-size: 0.9rem;
+  backdrop-filter: blur(8px);
+  transition: border-color 0.2s;
+}
+
+.watchlist-search-input::placeholder {
+  color: #64748b;
+}
+
+.watchlist-search-input:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+
+.wl-add-btn {
+  padding: 0.55rem 1.1rem;
+  border: none;
+  border-radius: 0.5rem;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: white;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.25s;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.wl-add-btn:hover {
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.35);
+}
+
+/* ── Update time ───────────────────────────────────────────────── */
+.watchlist-update-time {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  color: #64748b;
+  margin-bottom: 1.25rem;
+}
+
+/* ── Grid ──────────────────────────────────────────────────────── */
+.watchlist-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+  gap: 1.1rem;
+}
+
+@media (max-width: 768px) {
+  .watchlist-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Card ──────────────────────────────────────────────────────── */
+.wl-card {
+  position: relative;
+  background: rgba(30, 41, 59, 0.72);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 0.85rem;
+  padding: 1.15rem 1.25rem;
+  transition: transform 0.3s cubic-bezier(.4,0,.2,1),
+              box-shadow 0.3s cubic-bezier(.4,0,.2,1),
+              border-color 0.3s;
+  overflow: hidden;
+}
+
+.wl-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  border-radius: 0.85rem 0.85rem 0 0;
+  opacity: 0.85;
+}
+
+.wl-card.up::before {
+  background: linear-gradient(90deg, #ef4444, #f97316);
+}
+
+.wl-card.down::before {
+  background: linear-gradient(90deg, #16a34a, #22d3ee);
+}
+
+.wl-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.35);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.wl-card.error {
+  border-color: rgba(251, 191, 36, 0.3);
+}
+
+/* ── Card header ───────────────────────────────────────────────── */
+.wl-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 0.85rem;
+}
+
+.wl-card-emoji {
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.wl-card-title {
+  flex: 1;
+  min-width: 0;
+}
+
+.wl-card-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #f1f5f9;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wl-card-symbol {
+  font-size: 0.8rem;
+  color: #64748b;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+}
+
+.wl-card-market-badge {
+  font-size: 0.65rem;
+  padding: 0.15rem 0.4rem;
+  border-radius: 0.25rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.wl-card-market-badge.a-share {
+  background: rgba(239, 68, 68, 0.15);
+  color: #fca5a5;
+}
+
+.wl-card-market-badge.us-share {
+  background: rgba(59, 130, 246, 0.15);
+  color: #93c5fd;
+}
+
+/* Card action buttons (pin / delete) */
+.wl-card-actions {
+  display: flex;
+  gap: 0.25rem;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.wl-card:hover .wl-card-actions {
+  opacity: 1;
+}
+
+.wl-card-action-btn {
+  background: none;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  padding: 0.2rem;
+  border-radius: 0.3rem;
+  display: flex;
+  align-items: center;
+  transition: color 0.2s, background 0.2s;
+}
+
+.wl-card-action-btn:hover {
+  color: #f1f5f9;
+  background: rgba(255,255,255,0.08);
+}
+
+.wl-card-action-btn.pinned {
+  color: #facc15;
+}
+
+.wl-card-action-btn.delete:hover {
+  color: #ef4444;
+}
+
+/* ── Price row ─────────────────────────────────────────────────── */
+.wl-price-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 0.75rem;
+}
+
+.wl-price {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #f1f5f9;
+  font-variant-numeric: tabular-nums;
+  transition: text-shadow 0.4s;
+}
+
+.wl-price.flash {
+  text-shadow: 0 0 18px rgba(255, 255, 255, 0.6);
+}
+
+.wl-change {
+  font-size: 0.95rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.wl-change.up {
+  color: #ef4444;
+}
+
+.wl-change.down {
+  color: #16a34a;
+}
+
+/* ── Trend chart (glow SVG) ────────────────────────────────────── */
+.wl-trend {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 0.75rem;
+}
+
+.wl-trend svg {
+  display: block;
+  filter: drop-shadow(0 0 4px var(--trend-glow, rgba(255,255,255,0.15)));
+}
+
+/* ── Meta row ──────────────────────────────────────────────────── */
+.wl-meta {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.6rem 0.75rem;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 0.4rem;
+  margin-bottom: 0.55rem;
+}
+
+.wl-meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.wl-meta-label {
+  font-size: 0.7rem;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.wl-meta-value {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #94a3b8;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── OHLC row ──────────────────────────────────────────────────── */
+.wl-ohlc {
+  font-size: 0.72rem;
+  color: #475569;
+  text-align: center;
+  padding-top: 0.4rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Error card content ────────────────────────────────────────── */
+.wl-error-msg {
+  text-align: center;
+  padding: 1.5rem 0;
+  color: #f97316;
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+/* ── Empty state ───────────────────────────────────────────────── */
+.watchlist-empty {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: #64748b;
+}
+
+.watchlist-empty p {
+  margin-bottom: 1rem;
+  font-size: 1.1rem;
+}
+
+/* ── Skeleton ──────────────────────────────────────────────────── */
+.wl-skeleton {
+  background: rgba(30, 41, 59, 0.5);
+  border-color: rgba(255, 255, 255, 0.04);
+  animation: wl-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes wl-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.45; }
+}
+
+.wl-skel-line {
+  height: 1rem;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 0.25rem;
+  margin-bottom: 0.65rem;
+}
+
+.wl-skel-line.title { width: 55%; height: 1.3rem; }
+.wl-skel-line.price { width: 38%; height: 1.8rem; }
+.wl-skel-line.trend { width: 100%; height: 45px; }
+.wl-skel-line.meta  { width: 75%; height: 0.8rem; }
+
+/* ── Error banner ──────────────────────────────────────────────── */
+.watchlist-error {
+  padding: 0.75rem 1rem;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: 0.5rem;
+  color: #fca5a5;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+/* ── Page dark wrapper (apply to parent when in watchlist tab) ── */
+.watchlist-dark-bg {
+  background: #0f172a;
+  min-height: 100vh;
+}

@@ -20,6 +20,7 @@ from api.services.http_client import close_session
 from api.services.chat import chat_service
 from api.services.us_stocks import get_us_tech_overview, save_us_tech_data, load_us_tech_data
 from api.services.cache import get_cache, set_cache
+from api.routes.watchlist import router as watchlist_router
 
 class LoginRequest(BaseModel):
     username: str
@@ -46,6 +47,9 @@ async def lifespan(app: FastAPI):
     close_session()  # Clean up HTTP connections
 
 app = FastAPI(lifespan=lifespan, title="Little Red Flower API")
+
+# Include routers
+app.include_router(watchlist_router)
 
 # GZip compression (reduces transfer size for JSON responses)
 app.add_middleware(GZipMiddleware, minimum_size=500)

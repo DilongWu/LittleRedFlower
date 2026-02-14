@@ -11,8 +11,9 @@ import RiskAlerts from './components/RiskAlerts';
 import DataSourceSelector from './components/DataSourceSelector';
 import ChatAssistant from './components/ChatAssistant';
 import USTechStocks from './components/USTechStocks';
+import Watchlist from './components/Watchlist';
 import { prefetchDashboardData } from './services/dataCache';
-import { Calendar, FileText, Activity, LogOut, RefreshCw, Play, BarChart, Radar, Stethoscope, LineChart, Waves, Flame, ShieldAlert, DollarSign } from 'lucide-react';
+import { Calendar, FileText, Activity, LogOut, RefreshCw, Play, BarChart, Radar, Stethoscope, LineChart, Waves, Flame, ShieldAlert, DollarSign, Star } from 'lucide-react';
 import './Login.css';
 
 function App() {
@@ -207,6 +208,15 @@ function App() {
 
         <div className="mobile-nav-scroll">
           <div
+            className={`nav-item ${activeTab === 'watchlist' ? 'active' : ''}`}
+            onClick={() => setActiveTab('watchlist')}
+            title="自选股"
+          >
+            <Star size={18} />
+            <span>自选股 (Watchlist)</span>
+          </div>
+
+          <div
             className={`nav-item ${activeTab === 'daily' ? 'active' : ''}`}
             onClick={() => setActiveTab('daily')}
             title="市场晨讯"
@@ -317,6 +327,10 @@ function App() {
       </div>
 
       <div className="main-content">
+        {activeTab === 'watchlist' && (
+          <Watchlist />
+        )}
+
         {activeTab === 'sentiment' && (
            <SentimentDashboard data={sentimentData} loading={sentimentLoading} />
         )}
