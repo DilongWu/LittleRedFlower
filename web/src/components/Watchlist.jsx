@@ -202,6 +202,24 @@ const Watchlist = () => {
     localStorage.setItem('watchlist_pinned', JSON.stringify([...pinnedSet]));
   }, [pinnedSet]);
 
+  // 异步获取趋势数据（逐个请求，到了就更新卡片）
+  const fetchTrends = async (symbolList) => {
+    for (const sym of symbolList) {
+      try {
+        const res = await fetch(`/api/watchlist/trend?symbol=${sym}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.trend && data.trend.length > 0) {
+            setQuotes(prev => ({
+              ...prev,
+              [sym]: { ...prev[sym], trend: data.trend }
+            }));
+          }
+        }
+      } catch { /* ignore */ }
+    }
+  };
+
   // fetch data
   const fetchData = useCallback(async (force = false) => {
     if (symbols.length === 0) { setLoading(false); return; }
@@ -219,6 +237,16 @@ const Watchlist = () => {
       }
       setQuotes(json.quotes || {});
       setUpdatedAt(json.updated_at);
+
+      // 异步延迟加载趋势数据（不阻塞主渲染）
+      const quotesData = json.quotes || {};
+      const needTrend = symbols.filter(sym => {
+        const q = quotesData[sym];
+        return q && (!q.trend || q.trend.length === 0);
+      });
+      if (needTrend.length > 0) {
+        fetchTrends(needTrend);
+      }
     } catch (e) {
       setError(e.message);
     } finally {

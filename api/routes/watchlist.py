@@ -326,8 +326,6 @@ def get_watchlist_quotes(symbols: str = Query(..., description="Comma‑separate
             a_data = _fetch_a_share_quotes(uncached_a)
             for s in uncached_a:
                 if s in a_data:
-                    # Fetch trend data (rate‑limit friendly — cached per symbol)
-                    a_data[s]["trend"] = _fetch_a_share_trend(s)
                     set_cache(f"watchlist_quote_{s}", a_data[s], 300)  # 5 min
                     all_quotes[s] = a_data[s]
                 else:
@@ -347,3 +345,29 @@ def get_watchlist_quotes(symbols: str = Query(..., description="Comma‑separate
         "errors": errors,
         "updated_at": datetime.now().isoformat(),
     }
+
+
+@router.get("/trend")
+def get_watchlist_trend(symbol: str = Query(..., description="Single stock symbol")):
+    """获取单个 symbol 的趋势数据（30天收盘价），用于延迟加载迷你趋势图。"""
+    symbol = symbol.strip().upper()
+    if not _SYMBOL_VALID.match(symbol):
+        raise HTTPException(status_code=400, detail="Invalid symbol")
+
+    if _is_a_share(symbol):
+        trend = _fetch_a_share_trend(symbol)
+    else:
+        # 美股趋势已在 quotes 中包含，但也可单独获取
+        cache_key = f"watchlist_trend_{symbol}"
+        cached = get_cache(cache_key)
+        if cached is not None:
+            return {"symbol": symbol, "trend": cached}
+        try:
+            import yfinance as yf
+            hist = yf.Ticker(symbol).history(period="30d", timeout=10)
+            trend = [round(float(p), 2) for p in hist["Close"].tolist()[-30:]] if not hist.empty else []
+            set_cache(cache_key, trend, 3600)
+        except Exception:
+            trend = []
+
+    return {"symbol": symbol, "trend": trend}

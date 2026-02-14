@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════
-   自选股看板 — 深色硅谷风 + 毛玻璃 + 动画
+   自选股看板 — 白色背景 + 渐变条 + 动画
    ═══════════════════════════════════════════════════════════════ */
 
 .watchlist-page {
@@ -26,7 +26,7 @@
   margin: 0;
   font-size: 1.5rem;
   font-weight: 700;
-  color: #f1f5f9;
+  color: #1e293b;
 }
 
 .watchlist-header-icon {
@@ -43,21 +43,20 @@
   align-items: center;
   gap: 0.4rem;
   padding: 0.45rem 0.9rem;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid #d1d5db;
   border-radius: 0.5rem;
-  background: rgba(255, 255, 255, 0.06);
-  color: #cbd5e1;
+  background: #ffffff;
+  color: #374151;
   cursor: pointer;
   font-size: 0.85rem;
   font-weight: 500;
-  backdrop-filter: blur(8px);
   transition: all 0.25s;
 }
 
 .wl-btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.22);
-  color: #f1f5f9;
+  background: #f3f4f6;
+  border-color: #9ca3af;
+  color: #111827;
 }
 
 .wl-btn:disabled {
@@ -84,17 +83,16 @@
   flex: 1;
   max-width: 320px;
   padding: 0.55rem 0.9rem;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid #d1d5db;
   border-radius: 0.5rem;
-  background: rgba(255, 255, 255, 0.06);
-  color: #f1f5f9;
+  background: #ffffff;
+  color: #1e293b;
   font-size: 0.9rem;
-  backdrop-filter: blur(8px);
   transition: border-color 0.2s;
 }
 
 .watchlist-search-input::placeholder {
-  color: #64748b;
+  color: #9ca3af;
 }
 
 .watchlist-search-input:focus {
@@ -130,7 +128,7 @@
   align-items: center;
   gap: 0.4rem;
   font-size: 0.75rem;
-  color: #64748b;
+  color: #6b7280;
   margin-bottom: 1.25rem;
 }
 
@@ -141,19 +139,11 @@
   gap: 1.1rem;
 }
 
-@media (max-width: 768px) {
-  .watchlist-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
 /* ── Card ──────────────────────────────────────────────────────── */
 .wl-card {
   position: relative;
-  background: rgba(30, 41, 59, 0.72);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: #ffffff;
+  border: 1px solid #e1e4e8;
   border-radius: 0.85rem;
   padding: 1.15rem 1.25rem;
   transition: transform 0.3s cubic-bezier(.4,0,.2,1),
@@ -181,12 +171,12 @@
 
 .wl-card:hover {
   transform: translateY(-6px);
-  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.35);
-  border-color: rgba(255, 255, 255, 0.14);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.1);
+  border-color: #c7cbd0;
 }
 
 .wl-card.error {
-  border-color: rgba(251, 191, 36, 0.3);
+  border-color: rgba(251, 191, 36, 0.5);
 }
 
 /* ── Card header ───────────────────────────────────────────────── */
@@ -210,7 +200,7 @@
 .wl-card-name {
   font-size: 1rem;
   font-weight: 600;
-  color: #f1f5f9;
+  color: #1e293b;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -218,7 +208,7 @@
 
 .wl-card-symbol {
   font-size: 0.8rem;
-  color: #64748b;
+  color: #6b7280;
   font-family: 'SF Mono', 'Fira Code', monospace;
 }
 
@@ -231,13 +221,13 @@
 }
 
 .wl-card-market-badge.a-share {
-  background: rgba(239, 68, 68, 0.15);
-  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
 }
 
 .wl-card-market-badge.us-share {
-  background: rgba(59, 130, 246, 0.15);
-  color: #93c5fd;
+  background: rgba(59, 130, 246, 0.1);
+  color: #2563eb;
 }
 
 /* Card action buttons (pin / delete) */
@@ -255,7 +245,7 @@
 .wl-card-action-btn {
   background: none;
   border: none;
-  color: #64748b;
+  color: #9ca3af;
   cursor: pointer;
   padding: 0.2rem;
   border-radius: 0.3rem;
@@ -265,8 +255,8 @@
 }
 
 .wl-card-action-btn:hover {
-  color: #f1f5f9;
-  background: rgba(255,255,255,0.08);
+  color: #374151;
+  background: rgba(0,0,0,0.05);
 }
 
 .wl-card-action-btn.pinned {
@@ -288,13 +278,13 @@
 .wl-price {
   font-size: 1.75rem;
   font-weight: 700;
-  color: #f1f5f9;
+  color: #0f172a;
   font-variant-numeric: tabular-nums;
   transition: text-shadow 0.4s;
 }
 
 .wl-price.flash {
-  text-shadow: 0 0 18px rgba(255, 255, 255, 0.6);
+  text-shadow: 0 0 18px rgba(99, 102, 241, 0.4);
 }
 
 .wl-change {
@@ -320,7 +310,7 @@
 
 .wl-trend svg {
   display: block;
-  filter: drop-shadow(0 0 4px var(--trend-glow, rgba(255,255,255,0.15)));
+  filter: drop-shadow(0 0 4px var(--trend-glow, rgba(99,102,241,0.15)));
 }
 
 /* ── Meta row ──────────────────────────────────────────────────── */
@@ -328,7 +318,7 @@
   display: flex;
   justify-content: space-between;
   padding: 0.6rem 0.75rem;
-  background: rgba(255, 255, 255, 0.03);
+  background: #f8f9fb;
   border-radius: 0.4rem;
   margin-bottom: 0.55rem;
 }
@@ -341,7 +331,7 @@
 
 .wl-meta-label {
   font-size: 0.7rem;
-  color: #475569;
+  color: #6b7280;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -349,17 +339,17 @@
 .wl-meta-value {
   font-size: 0.82rem;
   font-weight: 600;
-  color: #94a3b8;
+  color: #374151;
   font-variant-numeric: tabular-nums;
 }
 
 /* ── OHLC row ──────────────────────────────────────────────────── */
 .wl-ohlc {
   font-size: 0.72rem;
-  color: #475569;
+  color: #6b7280;
   text-align: center;
   padding-top: 0.4rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-top: 1px solid #e5e7eb;
   font-variant-numeric: tabular-nums;
 }
 
@@ -376,7 +366,7 @@
 .watchlist-empty {
   text-align: center;
   padding: 3rem 1rem;
-  color: #64748b;
+  color: #6b7280;
 }
 
 .watchlist-empty p {
@@ -386,8 +376,8 @@
 
 /* ── Skeleton ──────────────────────────────────────────────────── */
 .wl-skeleton {
-  background: rgba(30, 41, 59, 0.5);
-  border-color: rgba(255, 255, 255, 0.04);
+  background: #f9fafb;
+  border-color: #e5e7eb;
   animation: wl-pulse 1.6s ease-in-out infinite;
 }
 
@@ -398,7 +388,7 @@
 
 .wl-skel-line {
   height: 1rem;
-  background: rgba(255, 255, 255, 0.06);
+  background: #e5e7eb;
   border-radius: 0.25rem;
   margin-bottom: 0.65rem;
 }
@@ -411,16 +401,62 @@
 /* ── Error banner ──────────────────────────────────────────────── */
 .watchlist-error {
   padding: 0.75rem 1rem;
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.25);
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
   border-radius: 0.5rem;
-  color: #fca5a5;
+  color: #dc2626;
   margin-bottom: 1rem;
   font-size: 0.9rem;
 }
 
-/* ── Page dark wrapper (apply to parent when in watchlist tab) ── */
+/* ── Page wrapper (white background, matching other pages) ──── */
 .watchlist-dark-bg {
-  background: #0f172a;
+  background: #f5f7fa;
   min-height: 100vh;
+}
+
+/* ── Mobile responsive ─────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .watchlist-page {
+    padding: 0.75rem;
+  }
+
+  .watchlist-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .watchlist-header-left h2 {
+    font-size: 1.2rem;
+  }
+
+  .watchlist-add-bar {
+    flex-direction: column;
+  }
+
+  .watchlist-search-input {
+    max-width: 100%;
+  }
+
+  .watchlist-grid {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .wl-card {
+    padding: 0.9rem 1rem;
+  }
+
+  .wl-price {
+    font-size: 1.4rem;
+  }
+
+  .wl-card-actions {
+    opacity: 1; /* 移动端始终显示操作按钮 */
+  }
+
+  .wl-ohlc {
+    font-size: 0.65rem;
+  }
 }
