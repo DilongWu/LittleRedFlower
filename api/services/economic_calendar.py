@@ -1,8 +1,9 @@
 """
 Economic Calendar Service
-Fetches economic calendar data from ForexFactory (via faireconomy.media).
-Free, no API key required.
+Primary: ForexFactory (free, no API key)
+Backup: Finnhub (requires FINNHUB_API_KEY env var)
 """
+import os
 import datetime
 import logging
 import requests
@@ -15,7 +16,6 @@ logger = logging.getLogger(__name__)
 CACHE_DURATION = 6 * 3600
 
 # ForexFactory calendar URL (free, no API key needed)
-# Only "thisweek" is available from the free feed
 FF_URL = "https://nfs.faireconomy.media/ff_calendar_thisweek.json"
 
 # Currency code → country code mapping
@@ -32,13 +32,20 @@ CURRENCY_TO_COUNTRY = {
     "ALL": "ALL",
 }
 
-# Impact normalization
+# Impact normalization (ForexFactory)
 IMPACT_NORMALIZE = {
     "High": "high",
     "Medium": "medium",
     "Low": "low",
     "Holiday": "low",
     "Non-Economic": "low",
+}
+
+# Impact mapping (Finnhub)
+FINNHUB_IMPACT_MAP = {
+    3: "high",
+    2: "medium",
+    1: "low",
 }
 
 # Category detection from event name
@@ -85,10 +92,8 @@ def _parse_ff_events(raw_events: list) -> list:
 
         if raw_date:
             try:
-                # Parse ISO format: "2026-02-16T21:30:00-05:00"
                 dt = datetime.datetime.fromisoformat(raw_date)
-                # Convert from US Eastern to UTC+8 (China time) for display
-                # ForexFactory uses ET (UTC-5), we add 13 hours for UTC+8
+                # Convert from US Eastern to UTC+8 (China time)
                 dt_cn = dt + datetime.timedelta(hours=13)
                 event_date = dt_cn.strftime("%Y-%m-%d")
                 event_time = dt_cn.strftime("%H:%M")
@@ -104,7 +109,6 @@ def _parse_ff_events(raw_events: list) -> list:
         event_name = ev.get("title", "")
         category = _detect_category(event_name)
 
-        # Clean up values (remove extra whitespace)
         forecast = ev.get("forecast", "").strip() or None
         previous = ev.get("previous", "").strip() or None
 
@@ -114,7 +118,7 @@ def _parse_ff_events(raw_events: list) -> list:
             "country": country,
             "event": event_name,
             "impact": impact,
-            "actual": None,  # FF free data doesn't include actuals in advance
+            "actual": None,
             "forecast": forecast,
             "previous": previous,
             "category": category,
@@ -125,8 +129,8 @@ def _parse_ff_events(raw_events: list) -> list:
 
 def _fetch_from_forexfactory() -> list:
     """
-    Fetch economic calendar from ForexFactory via faireconomy.media.
-    Free, no API key required. Only current week is available.
+    Fetch from ForexFactory (primary). Free, no API key.
+    Only current week available.
     """
     try:
         resp = requests.get(FF_URL, timeout=15, headers={
@@ -136,74 +140,140 @@ def _fetch_from_forexfactory() -> list:
         raw = resp.json()
 
         if not isinstance(raw, list):
-            logger.error(f"Unexpected response format from ForexFactory: {type(raw)}")
+            logger.error(f"Unexpected FF response format: {type(raw)}")
             return []
 
         events = _parse_ff_events(raw)
-        logger.info(f"Fetched {len(events)} events from ForexFactory")
+        logger.info(f"Fetched {len(events)} events from ForexFactory (primary)")
         return events
 
     except requests.exceptions.RequestException as e:
-        logger.error(f"ForexFactory API request failed: {e}")
+        logger.error(f"ForexFactory failed: {e}")
         return []
     except Exception as e:
-        logger.error(f"Error parsing ForexFactory data: {e}")
+        logger.error(f"ForexFactory parse error: {e}")
+        return []
+
+
+def _fetch_from_finnhub(from_date: str, to_date: str) -> list:
+    """
+    Fetch from Finnhub (backup). Requires FINNHUB_API_KEY env var.
+    """
+    api_key = os.getenv("FINNHUB_API_KEY", "")
+    if not api_key:
+        logger.warning("FINNHUB_API_KEY not set, backup unavailable")
+        return []
+
+    try:
+        resp = requests.get(
+            "https://finnhub.io/api/v1/calendar/economic",
+            params={"from": from_date, "to": to_date, "token": api_key},
+            timeout=15,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+
+        events = []
+        for ev in data.get("economicCalendar", []):
+            raw_time = ev.get("time", "")
+            event_date = raw_time[:10] if raw_time and len(raw_time) >= 10 else ""
+            event_time = ""
+            if raw_time and "T" in raw_time:
+                # Finnhub times are UTC, convert to UTC+8
+                try:
+                    dt = datetime.datetime.fromisoformat(raw_time.replace("Z", "+00:00"))
+                    dt_cn = dt + datetime.timedelta(hours=8)
+                    event_date = dt_cn.strftime("%Y-%m-%d")
+                    event_time = dt_cn.strftime("%H:%M")
+                except (ValueError, TypeError):
+                    event_time = raw_time.split("T")[1][:5] if "T" in raw_time else ""
+
+            actual = ev.get("actual")
+            forecast = ev.get("estimate")
+            previous = ev.get("prev")
+            unit = ev.get("unit", "")
+
+            def _fmt(val):
+                if val is None:
+                    return None
+                return f"{val}%" if unit == "%" else str(val)
+
+            impact = FINNHUB_IMPACT_MAP.get(ev.get("impact", 1), "low")
+            country = ev.get("country", "")
+            event_name = ev.get("event", "")
+
+            events.append({
+                "date": event_date,
+                "time": event_time,
+                "country": country,
+                "event": event_name,
+                "impact": impact,
+                "actual": _fmt(actual),
+                "forecast": _fmt(forecast),
+                "previous": _fmt(previous),
+                "category": _detect_category(event_name),
+            })
+
+        logger.info(f"Fetched {len(events)} events from Finnhub (backup)")
+        return events
+
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Finnhub failed: {e}")
+        return []
+    except Exception as e:
+        logger.error(f"Finnhub parse error: {e}")
         return []
 
 
 def get_economic_calendar(week_offset: int = 0) -> dict:
     """
-    Get economic calendar data with caching.
-
-    Args:
-        week_offset: 0 for this week, 1 for next week, -1 for last week
-
-    Returns:
-        Dict with 'data' list and 'last_updated' timestamp
+    Get economic calendar with caching.
+    Primary: ForexFactory | Backup: Finnhub
     """
     cache_key = f"economic_calendar_week_{week_offset}"
 
-    # Check cache
     cached = get_cache(cache_key)
     if cached is not None:
         return cached
 
-    # Calculate date range for display
     monday, sunday = _get_week_range(week_offset)
     from_date = monday.strftime("%Y-%m-%d")
     to_date = sunday.strftime("%Y-%m-%d")
 
-    # Only current week is supported by the free data source
+    # Non-current week: only Finnhub supports it
     if week_offset != 0:
-        result = {
-            "data": [],
-            "from_date": from_date,
-            "to_date": to_date,
-            "last_updated": datetime.datetime.now().isoformat(timespec="seconds"),
-            "note": "免费数据源仅支持本周数据",
-        }
-        return result
+        events = _fetch_from_finnhub(from_date, to_date)
+        if not events:
+            result = {
+                "data": [],
+                "from_date": from_date,
+                "to_date": to_date,
+                "last_updated": datetime.datetime.now().isoformat(timespec="seconds"),
+                "note": "仅支持本周数据" if not os.getenv("FINNHUB_API_KEY") else "暂无数据，请稍后重试",
+            }
+            return result
+    else:
+        # Try ForexFactory first, fallback to Finnhub
+        events = _fetch_from_forexfactory()
+        source = "ForexFactory"
 
-    # Fetch from ForexFactory
-    events = _fetch_from_forexfactory()
+        if not events:
+            logger.warning("ForexFactory failed, falling back to Finnhub")
+            events = _fetch_from_finnhub(from_date, to_date)
+            source = "Finnhub"
 
-    if not events:
-        result = {
-            "data": [],
-            "from_date": from_date,
-            "to_date": to_date,
-            "last_updated": datetime.datetime.now().isoformat(timespec="seconds"),
-            "note": "暂无数据，请稍后重试",
-        }
-        # Cache empty result for 10 minutes
-        set_cache(cache_key, result, 600)
-        return result
+        if not events:
+            result = {
+                "data": [],
+                "from_date": from_date,
+                "to_date": to_date,
+                "last_updated": datetime.datetime.now().isoformat(timespec="seconds"),
+                "note": "暂无数据，请稍后重试",
+            }
+            set_cache(cache_key, result, 600)
+            return result
 
-    # Sort by date and time
     events.sort(key=lambda x: (x.get("date", ""), x.get("time", "")))
-
-    # Filter: only keep events with medium/high impact by default
-    # (but return all, let frontend filter)
 
     result = {
         "data": events,
@@ -212,6 +282,5 @@ def get_economic_calendar(week_offset: int = 0) -> dict:
         "last_updated": datetime.datetime.now().isoformat(timespec="seconds"),
     }
 
-    # Cache for 6 hours
     set_cache(cache_key, result, CACHE_DURATION)
     return result

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { Calendar, RefreshCw, Filter } from 'lucide-react';
+import { Calendar, RefreshCw, ChevronLeft, ChevronRight, Filter } from 'lucide-react';
 import { fetchWithCache, API_ENDPOINTS } from '../services/dataCache';
 import './EconomicCalendar.css';
 
@@ -124,7 +124,20 @@ const EconomicCalendar = () => {
           财经日历
         </div>
         <div className="ec-actions">
-          <span className="ec-week-label">本周</span>
+          <div className="ec-week-nav">
+            <button className="ec-nav-btn" onClick={() => setWeekOffset(w => w - 1)} title="上一周">
+              <ChevronLeft size={16} />
+            </button>
+            <span className="ec-week-label">{weekLabel}</span>
+            <button className="ec-nav-btn" onClick={() => setWeekOffset(w => w + 1)} title="下一周">
+              <ChevronRight size={16} />
+            </button>
+            {weekOffset !== 0 && (
+              <button className="ec-nav-btn ec-today-btn" onClick={() => setWeekOffset(0)}>
+                本周
+              </button>
+            )}
+          </div>
           <button
             className={`ec-filter-btn ${showFilters ? 'active' : ''}`}
             onClick={() => setShowFilters(f => !f)}
