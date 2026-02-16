@@ -62,6 +62,155 @@ CATEGORY_KEYWORDS = {
 }
 
 
+# Common event name translations (English → Chinese)
+EVENT_TRANSLATIONS = {
+    # --- Inflation ---
+    "CPI m/m": "CPI 月率",
+    "CPI y/y": "CPI 年率",
+    "Core CPI m/m": "核心CPI 月率",
+    "Core CPI y/y": "核心CPI 年率",
+    "PPI m/m": "PPI 月率",
+    "PPI y/y": "PPI 年率",
+    "Core PCE Price Index m/m": "核心PCE物价指数 月率",
+    "PCE Price Index m/m": "PCE物价指数 月率",
+    "PCE Price Index y/y": "PCE物价指数 年率",
+    "PPI Input m/m": "PPI投入 月率",
+    "PPI Input q/q": "PPI投入 季率",
+    "PPI Output m/m": "PPI产出 月率",
+    "PPI Output q/q": "PPI产出 季率",
+    "German PPI m/m": "德国PPI 月率",
+    "German Final CPI m/m": "德国CPI终值 月率",
+    "French Final CPI m/m": "法国CPI终值 月率",
+    "RPI y/y": "零售物价指数 年率",
+    "FPI m/m": "食品物价指数 月率",
+    "Cleveland Fed Inflation Expectations": "克利夫兰联储通胀预期",
+    "Revised UoM Inflation Expectations": "密歇根大学通胀预期(修正)",
+    "Common CPI y/y": "通用CPI 年率",
+    "Median CPI y/y": "中位CPI 年率",
+    "Trimmed CPI y/y": "修剪均值CPI 年率",
+    "National Core CPI y/y": "全国核心CPI 年率",
+    # --- Employment ---
+    "Unemployment Claims": "初请失业金人数",
+    "Unemployment Rate": "失业率",
+    "Employment Change": "就业人数变化",
+    "Claimant Count Change": "失业金申请人数变化",
+    "ADP Weekly Employment Change": "ADP每周就业变化",
+    "Average Earnings Index 3m/y": "平均薪资指数(3个月/年率)",
+    "Wage Price Index q/q": "工资物价指数 季率",
+    # --- GDP ---
+    "Advance GDP q/q": "GDP初值 季率",
+    "Advance GDP Price Index q/q": "GDP物价指数初值 季率",
+    "Prelim GDP q/q": "GDP初值 季率",
+    "Prelim GDP Price Index y/y": "GDP物价指数初值 年率",
+    # --- Interest Rate / Central Bank ---
+    "FOMC Meeting Minutes": "美联储会议纪要",
+    "FOMC Member Barr Speaks": "美联储Barr讲话",
+    "FOMC Member Bostic Speaks": "美联储Bostic讲话",
+    "FOMC Member Bowman Speaks": "美联储Bowman讲话",
+    "FOMC Member Daly Speaks": "美联储Daly讲话",
+    "FOMC Member Goolsbee Speaks": "美联储Goolsbee讲话",
+    "FOMC Member Kashkari Speaks": "美联储Kashkari讲话",
+    "FOMC Member Logan Speaks": "美联储Logan讲话",
+    "ECB President Lagarde Speaks": "欧央行行长拉加德讲话",
+    "ECB Economic Bulletin": "欧央行经济公报",
+    "Official Cash Rate": "官方现金利率",
+    "RBNZ Monetary Policy Statement": "新西兰联储货币政策声明",
+    "RBNZ Rate Statement": "新西兰联储利率声明",
+    "RBNZ Press Conference": "新西兰联储新闻发布会",
+    "RBNZ Gov Breman Speaks": "新西兰联储主席讲话",
+    "Monetary Policy Meeting Minutes": "货币政策会议纪要",
+    "German Buba Monthly Report": "德国央行月报",
+    "German Buba President Nagel Speaks": "德国央行行长Nagel讲话",
+    # --- Trade ---
+    "Trade Balance": "贸易帐",
+    "Current Account": "经常帐",
+    "Goods Trade Balance": "商品贸易帐",
+    "Italian Trade Balance": "意大利贸易帐",
+    "Foreign Securities Purchases": "海外证券购买",
+    "TIC Long-Term Purchases": "TIC长期资本净流入",
+    # --- Manufacturing ---
+    "Flash Manufacturing PMI": "制造业PMI初值",
+    "Flash Services PMI": "服务业PMI初值",
+    "Empire State Manufacturing Index": "纽约联储制造业指数",
+    "Philly Fed Manufacturing Index": "费城联储制造业指数",
+    "Industrial Production m/m": "工业产出 月率",
+    "Revised Industrial Production m/m": "工业产出(修正) 月率",
+    "German Flash Manufacturing PMI": "德国制造业PMI初值",
+    "German Flash Services PMI": "德国服务业PMI初值",
+    "French Flash Manufacturing PMI": "法国制造业PMI初值",
+    "French Flash Services PMI": "法国服务业PMI初值",
+    "Capacity Utilization Rate": "产能利用率",
+    "Manufacturing Sales m/m": "制造业销售 月率",
+    "Tertiary Industry Activity m/m": "第三产业活动指数 月率",
+    "Core Machinery Orders m/m": "核心机械订单 月率",
+    # --- Consumer ---
+    "Retail Sales m/m": "零售销售 月率",
+    "Core Retail Sales m/m": "核心零售销售 月率",
+    "Consumer Confidence": "消费者信心指数",
+    "Revised UoM Consumer Sentiment": "密歇根大学消费者信心(修正)",
+    "Personal Income m/m": "个人收入 月率",
+    "Personal Spending m/m": "个人支出 月率",
+    "CB Leading Index m/m": "谘商会领先指标 月率",
+    "GDT Price Index": "全球乳制品价格指数",
+    "BusinessNZ Services Index": "新西兰商业服务指数",
+    "MI Leading Index m/m": "墨尔本先行指标 月率",
+    "CBI Industrial Order Expectations": "英国工业订单预期",
+    "NAB Quarterly Business Confidence": "澳洲NAB季度商业信心",
+    "Wholesale Sales m/m": "批发销售 月率",
+    # --- Housing ---
+    "Building Permits": "营建许可",
+    "Housing Starts": "新屋开工",
+    "New Home Sales": "新屋销售",
+    "Pending Home Sales m/m": "成屋签约销售 月率",
+    "NAHB Housing Market Index": "NAHB房产市场指数",
+    "HPI y/y": "房价指数 年率",
+    "NHPI m/m": "新屋价格指数 月率",
+    "Rightmove HPI m/m": "Rightmove房价指数 月率",
+    # --- Durable Goods ---
+    "Durable Goods Orders m/m": "耐用品订单 月率",
+    "Core Durable Goods Orders m/m": "核心耐用品订单 月率",
+    "Prelim Wholesale Inventories m/m": "批发库存初值 月率",
+    # --- Energy ---
+    "Crude Oil Inventories": "EIA原油库存",
+    "Natural Gas Storage": "天然气库存",
+    # --- Bond Auction ---
+    "German 10-y Bond Auction": "德国10年期国债拍卖",
+    "Spanish 10-y Bond Auction": "西班牙10年期国债拍卖",
+    # --- Other ---
+    "Bank Holiday": "银行假日",
+    "ECOFIN Meetings": "欧盟财长会议",
+    "Eurogroup Meetings": "欧元集团会议",
+    "German ZEW Economic Sentiment": "德国ZEW经济景气指数",
+    "ZEW Economic Sentiment": "ZEW经济景气指数",
+    "Public Sector Net Borrowing": "公共部门净借款",
+    "API Weekly Statistical Bulletin": "API每周统计公报",
+    "IPPI m/m": "工业品价格指数 月率",
+    "RMPI m/m": "原材料价格指数 月率",
+}
+
+# Country name translations
+COUNTRY_NAMES = {
+    "US": "🇺🇸 美国",
+    "EU": "🇪🇺 欧元区",
+    "GB": "🇬🇧 英国",
+    "JP": "🇯🇵 日本",
+    "CN": "🇨🇳 中国",
+    "AU": "🇦🇺 澳大利亚",
+    "CA": "🇨🇦 加拿大",
+    "NZ": "🇳🇿 新西兰",
+    "CH": "🇨🇭 瑞士",
+    "DE": "🇩🇪 德国",
+    "FR": "🇫🇷 法国",
+    "IT": "🇮🇹 意大利",
+    "ES": "🇪🇸 西班牙",
+}
+
+
+def _translate_event(event_name: str) -> str:
+    """Translate event name to Chinese. Falls back to original if not found."""
+    return EVENT_TRANSLATIONS.get(event_name, event_name)
+
+
 def _detect_category(event_name: str) -> str:
     """Detect category from event name."""
     if not event_name:
@@ -108,6 +257,7 @@ def _parse_ff_events(raw_events: list) -> list:
 
         event_name = ev.get("title", "")
         category = _detect_category(event_name)
+        event_name_cn = _translate_event(event_name)
 
         forecast = ev.get("forecast", "").strip() or None
         previous = ev.get("previous", "").strip() or None
@@ -116,7 +266,7 @@ def _parse_ff_events(raw_events: list) -> list:
             "date": event_date,
             "time": event_time,
             "country": country,
-            "event": event_name,
+            "event": event_name_cn,
             "impact": impact,
             "actual": None,
             "forecast": forecast,
@@ -206,7 +356,7 @@ def _fetch_from_finnhub(from_date: str, to_date: str) -> list:
                 "date": event_date,
                 "time": event_time,
                 "country": country,
-                "event": event_name,
+                "event": _translate_event(event_name),
                 "impact": impact,
                 "actual": _fmt(actual),
                 "forecast": _fmt(forecast),
