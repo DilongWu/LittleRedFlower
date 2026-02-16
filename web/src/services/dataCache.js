@@ -203,7 +203,8 @@ export const API_ENDPOINTS = {
   DASHBOARD_ALL: '/api/dashboard/all',
   INDEX_OVERVIEW: '/api/index/overview',
   MARKET_RADAR: '/api/market/radar',
-  FUND_FLOW: '/api/fund/flow',
+  FUND_FLOW: '/api/fund/flow',  // deprecated
+  ECONOMIC_CALENDAR: '/api/calendar/economic',
   HOT_CONCEPTS: '/api/concepts/hot',
   RISK_ALERTS: '/api/market/risk',
   SENTIMENT: '/api/sentiment',

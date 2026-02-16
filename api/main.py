@@ -15,6 +15,7 @@ from api.services.diagnosis import get_stock_diagnosis
 from api.services.index_overview import get_index_overview
 from api.services.fund_flow import get_fund_flow_rank
 from api.services.concepts import get_hot_concepts
+from api.services.economic_calendar import get_economic_calendar
 from api.services.data_source import get_data_source, set_data_source, test_data_source, get_tushare_token, set_tushare_token, VALID_DATA_SOURCES
 from api.services.http_client import close_session
 from api.services.chat import chat_service
@@ -274,11 +275,21 @@ async def index_overview():
 
 @app.get("/api/fund/flow")
 async def fund_flow_rank():
-    """Get fund flow ranking for individual stocks."""
+    """[DEPRECATED] Get fund flow ranking. Use /api/calendar/economic instead."""
     result = get_fund_flow_rank()
     if isinstance(result, dict) and result.get("error"):
         raise HTTPException(status_code=400, detail=result["error"])
     return result
+
+
+@app.get("/api/calendar/economic")
+async def economic_calendar(week: int = Query(0, description="Week offset: 0=this week, 1=next week, -1=last week")):
+    """Get economic calendar data for the specified week."""
+    try:
+        result = get_economic_calendar(week_offset=week)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取财经日历失败: {str(e)}")
 
 @app.get("/api/concept/hot")
 @app.get("/api/concepts/hot")  # Add plural form for consistency

@@ -5,7 +5,7 @@ import SentimentDashboard from './components/SentimentDashboard';
 import DataSourceDashboard from './components/DataSourceDashboard';
 import StockDiagnosis from './components/StockDiagnosis';
 import IndexOverview from './components/IndexOverview';
-import FundFlowRank from './components/FundFlowRank';
+import EconomicCalendar from './components/EconomicCalendar';
 import HotConcepts from './components/HotConcepts';
 import RiskAlerts from './components/RiskAlerts';
 import DataSourceSelector from './components/DataSourceSelector';
@@ -13,7 +13,7 @@ import ChatAssistant from './components/ChatAssistant';
 import USTechStocks from './components/USTechStocks';
 import Watchlist from './components/Watchlist';
 import { prefetchDashboardData } from './services/dataCache';
-import { Calendar, FileText, Activity, LogOut, RefreshCw, Play, BarChart, Radar, Stethoscope, LineChart, Waves, Flame, ShieldAlert, DollarSign, Star } from 'lucide-react';
+import { Calendar, FileText, Activity, LogOut, RefreshCw, Play, BarChart, Radar, Stethoscope, LineChart, Flame, ShieldAlert, DollarSign, Star } from 'lucide-react';
 import './Login.css';
 
 function App() {
@@ -271,12 +271,12 @@ function App() {
           </div>
 
           <div
-            className={`nav-item ${activeTab === 'fund' ? 'active' : ''}`}
-            onClick={() => setActiveTab('fund')}
-            title="资金流向"
+            className={`nav-item ${activeTab === 'calendar' ? 'active' : ''}`}
+            onClick={() => setActiveTab('calendar')}
+            title="财经日历"
           >
-            <Waves size={18} />
-            <span>资金流向 (Funds)</span>
+            <Calendar size={18} />
+            <span>财经日历 (Calendar)</span>
           </div>
 
           <div
@@ -347,8 +347,8 @@ function App() {
             <IndexOverview />
           ) : null}
 
-          {activeTab === 'fund' ? (
-            <FundFlowRank />
+          {activeTab === 'calendar' ? (
+            <EconomicCalendar />
           ) : null}
 
           {activeTab === 'concept' ? (
