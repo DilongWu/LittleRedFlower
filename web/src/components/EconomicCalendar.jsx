@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { Calendar, RefreshCw, ChevronLeft, ChevronRight, Filter } from 'lucide-react';
+import { CalendarDays, RefreshCw, ChevronLeft, ChevronRight, Filter } from 'lucide-react';
 import { fetchWithCache, API_ENDPOINTS } from '../services/dataCache';
 import './EconomicCalendar.css';
 
@@ -120,7 +120,7 @@ const EconomicCalendar = () => {
     <div className="ec-page">
       <div className="ec-header">
         <div className="ec-title">
-          <Calendar size={22} />
+          <CalendarDays size={22} />
           财经日历
         </div>
         <div className="ec-actions">

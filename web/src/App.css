@@ -49,6 +49,11 @@ body {
   gap: 10px;
 }
 
+/* Desktop: show full label, hide short label */
+.nav-label-short {
+  display: none;
+}
+
 .nav-item:hover {
   background-color: #fff1f0;
   color: #d32f2f;
@@ -498,8 +503,14 @@ body {
     background-color: #ffebee;
   }
 
-  .sidebar .nav-item span {
-    display: none; /* Hide text, show only icon on mobile */
+  .sidebar .nav-item span.nav-label-full {
+    display: none; /* Hide full text on mobile */
+  }
+
+  .sidebar .nav-item span.nav-label-short {
+    display: inline; /* Show short label on mobile */
+    font-size: 11px;
+    margin-left: 2px;
   }
 
   /* Hide the footer text on mobile sidebar, but keep data source selector */

@@ -13,7 +13,7 @@ import ChatAssistant from './components/ChatAssistant';
 import USTechStocks from './components/USTechStocks';
 import Watchlist from './components/Watchlist';
 import { prefetchDashboardData } from './services/dataCache';
-import { Calendar, FileText, Activity, LogOut, RefreshCw, Play, BarChart, Radar, Stethoscope, LineChart, Flame, ShieldAlert, DollarSign, Star } from 'lucide-react';
+import { CalendarDays, CalendarRange, FileText, Activity, LogOut, RefreshCw, Play, BarChart, Radar, Stethoscope, LineChart, Flame, ShieldAlert, DollarSign, Star } from 'lucide-react';
 import './Login.css';
 
 function App() {
@@ -213,7 +213,8 @@ function App() {
             title="自选股"
           >
             <Star size={18} />
-            <span>自选股 (Watchlist)</span>
+            <span className="nav-label-full">自选股 (Watchlist)</span>
+            <span className="nav-label-short">自选</span>
           </div>
 
           <div
@@ -222,7 +223,8 @@ function App() {
             title="市场晨讯"
           >
             <FileText size={18} />
-            <span>市场晨讯 (Daily)</span>
+            <span className="nav-label-full">市场晨讯 (Daily)</span>
+            <span className="nav-label-short">晨讯</span>
           </div>
 
           <div
@@ -230,8 +232,9 @@ function App() {
             onClick={() => setActiveTab('weekly')}
             title="每周复盘"
           >
-            <Calendar size={18} />
-            <span>每周复盘 (Weekly)</span>
+            <CalendarRange size={18} />
+            <span className="nav-label-full">每周复盘 (Weekly)</span>
+            <span className="nav-label-short">周报</span>
           </div>
 
           <div
@@ -240,7 +243,8 @@ function App() {
             title="AI 情绪看板"
           >
             <BarChart size={18} />
-            <span>AI 情绪看板 (Sentiment)</span>
+            <span className="nav-label-full">AI 情绪看板 (Sentiment)</span>
+            <span className="nav-label-short">情绪</span>
           </div>
 
           <div
@@ -249,7 +253,8 @@ function App() {
             title="全景雷达"
           >
             <Radar size={18} />
-            <span>全景雷达 (Radar)</span>
+            <span className="nav-label-full">全景雷达 (Radar)</span>
+            <span className="nav-label-short">雷达</span>
           </div>
 
           <div
@@ -258,7 +263,8 @@ function App() {
             title="指数K线"
           >
             <LineChart size={18} />
-            <span>指数K线 (Index)</span>
+            <span className="nav-label-full">指数K线 (Index)</span>
+            <span className="nav-label-short">K线</span>
           </div>
 
           <div
@@ -267,7 +273,8 @@ function App() {
             title="个股诊断"
           >
             <Stethoscope size={18} />
-            <span>个股诊断 (Diagnosis)</span>
+            <span className="nav-label-full">个股诊断 (Diagnosis)</span>
+            <span className="nav-label-short">诊断</span>
           </div>
 
           <div
@@ -275,8 +282,9 @@ function App() {
             onClick={() => setActiveTab('calendar')}
             title="财经日历"
           >
-            <Calendar size={18} />
-            <span>财经日历 (Calendar)</span>
+            <CalendarDays size={18} />
+            <span className="nav-label-full">财经日历 (Calendar)</span>
+            <span className="nav-label-short">日历</span>
           </div>
 
           <div
@@ -285,7 +293,8 @@ function App() {
             title="热点题材"
           >
             <Flame size={18} />
-            <span>热点题材 (Themes)</span>
+            <span className="nav-label-full">热点题材 (Themes)</span>
+            <span className="nav-label-short">题材</span>
           </div>
 
           <div
@@ -294,7 +303,8 @@ function App() {
             title="风险预警"
           >
             <ShieldAlert size={18} />
-            <span>风险预警 (Risk)</span>
+            <span className="nav-label-full">风险预警 (Risk)</span>
+            <span className="nav-label-short">风险</span>
           </div>
 
           <div
@@ -303,7 +313,8 @@ function App() {
             title="美股科技"
           >
             <DollarSign size={18} />
-            <span>美股科技 (US Tech)</span>
+            <span className="nav-label-full">美股科技 (US Tech)</span>
+            <span className="nav-label-short">美股</span>
           </div>
 
           <div
