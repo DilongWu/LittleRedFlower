@@ -387,20 +387,60 @@ function App() {
             <LogOut size={16} />
           </div>
         </div>
-        <div className="mobile-nav-scroll" ref={mobileScrollRef}>
-          {NAV_GROUPS.map(group => (
-            group.items.map(item => (
+        {/* Row 1: 5 group tabs */}
+        <div className="mobile-nav-groups" ref={mobileScrollRef}>
+          {NAV_GROUPS.map(group => {
+            const hasActiveChild = group.items.some(item => item.key === activeTab);
+            const isSingleItem = group.items.length === 1;
+            return (
               <div
-                key={item.key}
-                className={`mobile-nav-item ${activeTab === item.key ? 'active' : ''}`}
-                onClick={() => handleTabClick(item.key, group.key)}
+                key={group.key}
+                className={`mobile-group-tab ${hasActiveChild ? 'active' : ''}`}
+                onClick={() => {
+                  if (isSingleItem) {
+                    handleTabClick(group.items[0].key, group.key);
+                  } else {
+                    // Toggle sub-items row; if clicking same group, close it
+                    setExpandedGroup(prev => prev === group.key ? null : group.key);
+                    // If no child is active yet, select first child
+                    if (!hasActiveChild) {
+                      handleTabClick(group.items[0].key, group.key);
+                    }
+                  }
+                }}
               >
-                {getIcon(item.icon, 14)}
-                <span>{item.labelShort}</span>
+                {getIcon(group.icon, 16)}
+                <span>{group.labelShort}</span>
               </div>
-            ))
-          ))}
+            );
+          })}
         </div>
+        {/* Row 2: Sub-items of expanded group (only for multi-item groups) */}
+        {NAV_GROUPS.map(group => {
+          if (group.items.length <= 1) return null;
+          const hasActiveChild = group.items.some(item => item.key === activeTab);
+          if (!hasActiveChild && expandedGroup !== group.key) return null;
+          if (!hasActiveChild && expandedGroup === group.key) {
+            // Show if group is expanded
+          } else if (hasActiveChild) {
+            // Always show sub-row when a child is active
+          } else {
+            return null;
+          }
+          return (
+            <div key={group.key} className="mobile-sub-row">
+              {group.items.map(item => (
+                <div
+                  key={item.key}
+                  className={`mobile-sub-item ${activeTab === item.key ? 'active' : ''}`}
+                  onClick={() => handleTabClick(item.key, group.key)}
+                >
+                  <span>{item.labelShort}</span>
+                </div>
+              ))}
+            </div>
+          );
+        })}
       </div>
 
       {/* ── Main Content ── */}
