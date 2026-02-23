@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import ReportViewer from './components/ReportViewer';
 import SourceDataViewer from './components/SourceDataViewer';
 import SentimentDashboard from './components/SentimentDashboard';
@@ -119,6 +119,17 @@ function App() {
   // Sentiment State
   const [sentimentData, setSentimentData] = useState(null);
   const [sentimentLoading, setSentimentLoading] = useState(false);
+
+  const mobileScrollRef = useRef(null);
+
+  /* ─── Auto-scroll active mobile tab into view ─── */
+  useEffect(() => {
+    if (!mobileScrollRef.current) return;
+    const active = mobileScrollRef.current.querySelector('.mobile-nav-item.active');
+    if (active) {
+      active.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    }
+  }, [activeTab]);
 
   /* ─── Navigation Handlers ─── */
   const handleGroupClick = useCallback((groupKey) => {
@@ -376,7 +387,7 @@ function App() {
             <LogOut size={16} />
           </div>
         </div>
-        <div className="mobile-nav-scroll">
+        <div className="mobile-nav-scroll" ref={mobileScrollRef}>
           {NAV_GROUPS.map(group => (
             group.items.map(item => (
               <div
