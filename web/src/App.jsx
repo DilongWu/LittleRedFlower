@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import ReportViewer from './components/ReportViewer';
 import SourceDataViewer from './components/SourceDataViewer';
 import SentimentDashboard from './components/SentimentDashboard';
@@ -13,8 +13,90 @@ import ChatAssistant from './components/ChatAssistant';
 import USTechStocks from './components/USTechStocks';
 import Watchlist from './components/Watchlist';
 import { prefetchDashboardData } from './services/dataCache';
-import { CalendarDays, CalendarRange, FileText, Activity, LogOut, RefreshCw, Play, BarChart, Radar, Stethoscope, LineChart, Flame, ShieldAlert, DollarSign, Star } from 'lucide-react';
+import {
+  CalendarDays, CalendarRange, FileText, Activity, LogOut, RefreshCw,
+  Play, BarChart, Radar, Stethoscope, LineChart, Flame, ShieldAlert,
+  DollarSign, Star, ChevronDown, LayoutDashboard, Newspaper, Building2,
+  Wrench
+} from 'lucide-react';
 import './Login.css';
+
+/* ─── Navigation Structure ─── */
+const NAV_GROUPS = [
+  {
+    key: 'overview',
+    label: '概览',
+    labelShort: '概览',
+    icon: 'LayoutDashboard',
+    items: [
+      { key: 'watchlist', label: '自选股', labelShort: '自选', icon: 'Star' },
+    ],
+  },
+  {
+    key: 'reports',
+    label: '报告',
+    labelShort: '报告',
+    icon: 'Newspaper',
+    items: [
+      { key: 'daily', label: '市场晨讯', labelShort: '晨讯', icon: 'FileText' },
+      { key: 'weekly', label: '每周复盘', labelShort: '周报', icon: 'CalendarRange' },
+      { key: 'radar', label: '全景雷达', labelShort: '雷达', icon: 'Radar' },
+    ],
+  },
+  {
+    key: 'ashare',
+    label: 'A股',
+    labelShort: 'A股',
+    icon: 'Building2',
+    items: [
+      { key: 'sentiment', label: 'AI 情绪看板', labelShort: '情绪', icon: 'BarChart' },
+      { key: 'index', label: '指数K线', labelShort: 'K线', icon: 'LineChart' },
+      { key: 'concept', label: '热点题材', labelShort: '题材', icon: 'Flame' },
+      { key: 'risk', label: '风险预警', labelShort: '风险', icon: 'ShieldAlert' },
+    ],
+  },
+  {
+    key: 'usmarket',
+    label: '美股',
+    labelShort: '美股',
+    icon: 'DollarSign',
+    items: [
+      { key: 'ustech', label: '美股科技', labelShort: '科技', icon: 'DollarSign' },
+    ],
+  },
+  {
+    key: 'tools',
+    label: '工具',
+    labelShort: '工具',
+    icon: 'Wrench',
+    items: [
+      { key: 'diagnosis', label: '个股诊断', labelShort: '诊断', icon: 'Stethoscope' },
+      { key: 'calendar', label: '财经日历', labelShort: '日历', icon: 'CalendarDays' },
+    ],
+  },
+];
+
+/* ─── Icon Map ─── */
+const ICON_MAP = {
+  LayoutDashboard, Newspaper, Building2, DollarSign, Wrench,
+  Star, FileText, CalendarRange, Radar, BarChart, LineChart,
+  Flame, ShieldAlert, Stethoscope, CalendarDays,
+};
+
+const getIcon = (name, size = 18) => {
+  const Icon = ICON_MAP[name];
+  return Icon ? <Icon size={size} /> : null;
+};
+
+/* ─── Find which group a tab belongs to ─── */
+const findGroupForTab = (tabKey) => {
+  for (const group of NAV_GROUPS) {
+    if (group.items.some(item => item.key === tabKey)) {
+      return group.key;
+    }
+  }
+  return NAV_GROUPS[0].key;
+};
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
@@ -24,7 +106,8 @@ function App() {
   const [loginPass, setLoginPass] = useState('');
   const [loginError, setLoginError] = useState('');
 
-  const [activeTab, setActiveTab] = useState('daily');
+  const [activeTab, setActiveTab] = useState('watchlist');
+  const [expandedGroup, setExpandedGroup] = useState(() => findGroupForTab('watchlist'));
   const [viewMode, setViewMode] = useState('report');
   const [reports, setReports] = useState([]);
   const [selectedDate, setSelectedDate] = useState('');
@@ -37,6 +120,17 @@ function App() {
   const [sentimentData, setSentimentData] = useState(null);
   const [sentimentLoading, setSentimentLoading] = useState(false);
 
+  /* ─── Navigation Handlers ─── */
+  const handleGroupClick = useCallback((groupKey) => {
+    setExpandedGroup(prev => prev === groupKey ? null : groupKey);
+  }, []);
+
+  const handleTabClick = useCallback((tabKey, groupKey) => {
+    setActiveTab(tabKey);
+    setExpandedGroup(groupKey);
+  }, []);
+
+  /* ─── Auth ─── */
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
@@ -89,14 +183,12 @@ function App() {
     }
   };
 
-  // Load available reports list on mount or auth change
+  /* ─── Data Loading ─── */
   useEffect(() => {
     if (!isAuthenticated) return;
 
-    // Prefetch all dashboard data in background for faster tab switching
     prefetchDashboardData();
 
-    // Fetch reports
     fetch('/api/reports')
       .then(res => res.json())
       .then(data => {
@@ -105,17 +197,14 @@ function App() {
       })
       .catch(err => console.error("Failed to list reports", err));
 
-    // Fetch Sentiment
     setSentimentLoading(true);
     fetch('/api/sentiment')
       .then(res => res.json())
       .then(data => setSentimentData(data))
       .catch(err => console.error("Failed to fetch sentiment", err))
       .finally(() => setSentimentLoading(false));
-
   }, [isAuthenticated]);
 
-  // When tab changes, find relevant report
   useEffect(() => {
     if (reports.length > 0) {
       selectLatestReport(reports, activeTab);
@@ -136,7 +225,7 @@ function App() {
     setLoading(true);
     setError(null);
     setSelectedDate(date);
-    
+
     fetch(`/api/reports/${date}?type=${type}`)
       .then(res => {
         if (!res.ok) throw new Error("Report not found");
@@ -157,35 +246,35 @@ function App() {
     fetchReport(newDate, activeTab);
   };
 
-  // Filter available dates for current tab
   const availableDates = reports
     .filter(r => r.type === activeTab)
     .map(r => r.date);
 
+  /* ─── Login Screen ─── */
   if (!isAuthenticated) {
     return (
       <div className="login-container">
         <div className="login-card">
-          <div className="sidebar-header" style={{justifyContent: 'center', marginBottom: '20px'}}>
-             <Activity color="#d32f2f" size={32} />
-             <span style={{fontSize: '1.5rem'}}>小红花</span>
+          <div className="sidebar-header" style={{ justifyContent: 'center', marginBottom: '20px' }}>
+            <Activity color="#d32f2f" size={32} />
+            <span style={{ fontSize: '1.5rem' }}>小红花</span>
           </div>
           <h2 className="login-title">请登录</h2>
           <form className="login-form" onSubmit={handleLogin}>
             <div className="form-group">
               <label>用户名</label>
-              <input 
-                type="text" 
-                value={loginUser} 
+              <input
+                type="text"
+                value={loginUser}
                 onChange={(e) => setLoginUser(e.target.value)}
                 placeholder="请输入用户名"
               />
             </div>
             <div className="form-group">
               <label>密码</label>
-              <input 
-                type="password" 
-                value={loginPass} 
+              <input
+                type="password"
+                value={loginPass}
                 onChange={(e) => setLoginPass(e.target.value)}
                 placeholder="请输入密码"
               />
@@ -198,243 +287,187 @@ function App() {
     );
   }
 
+  /* ─── Main Layout ─── */
   return (
     <div className="layout">
+      {/* ── Sidebar (Desktop) ── */}
       <div className="sidebar">
         <div className="sidebar-header">
           <Activity color="#d32f2f" />
           <span>小红花</span>
         </div>
 
-        <div className="mobile-nav-scroll">
-          <div
-            className={`nav-item ${activeTab === 'watchlist' ? 'active' : ''}`}
-            onClick={() => setActiveTab('watchlist')}
-            title="自选股"
-          >
-            <Star size={18} />
-            <span className="nav-label-full">自选股 (Watchlist)</span>
-            <span className="nav-label-short">自选</span>
-          </div>
+        <nav className="nav-groups">
+          {NAV_GROUPS.map(group => {
+            const isExpanded = expandedGroup === group.key;
+            const hasActiveChild = group.items.some(item => item.key === activeTab);
+            // Single-item groups: click goes directly to that tab
+            const isSingleItem = group.items.length === 1;
 
-          <div
-            className={`nav-item ${activeTab === 'daily' ? 'active' : ''}`}
-            onClick={() => setActiveTab('daily')}
-            title="市场晨讯"
-          >
-            <FileText size={18} />
-            <span className="nav-label-full">市场晨讯 (Daily)</span>
-            <span className="nav-label-short">晨讯</span>
-          </div>
+            return (
+              <div key={group.key} className={`nav-group ${isExpanded ? 'expanded' : ''} ${hasActiveChild ? 'has-active' : ''}`}>
+                <div
+                  className={`nav-group-header ${hasActiveChild ? 'active' : ''}`}
+                  onClick={() => {
+                    if (isSingleItem) {
+                      handleTabClick(group.items[0].key, group.key);
+                    } else {
+                      handleGroupClick(group.key);
+                    }
+                  }}
+                >
+                  <div className="nav-group-label">
+                    {getIcon(group.icon, 18)}
+                    <span>{group.label}</span>
+                  </div>
+                  {!isSingleItem && (
+                    <ChevronDown size={14} className={`nav-chevron ${isExpanded ? 'rotated' : ''}`} />
+                  )}
+                </div>
 
-          <div
-            className={`nav-item ${activeTab === 'weekly' ? 'active' : ''}`}
-            onClick={() => setActiveTab('weekly')}
-            title="每周复盘"
-          >
-            <CalendarRange size={18} />
-            <span className="nav-label-full">每周复盘 (Weekly)</span>
-            <span className="nav-label-short">周报</span>
-          </div>
+                {!isSingleItem && isExpanded && (
+                  <div className="nav-group-items">
+                    {group.items.map(item => (
+                      <div
+                        key={item.key}
+                        className={`nav-item ${activeTab === item.key ? 'active' : ''}`}
+                        onClick={() => handleTabClick(item.key, group.key)}
+                        title={item.label}
+                      >
+                        {getIcon(item.icon, 16)}
+                        <span>{item.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </nav>
 
+        {/* Logout + Footer */}
+        <div className="sidebar-bottom">
           <div
-            className={`nav-item ${activeTab === 'sentiment' ? 'active' : ''}`}
-            onClick={() => setActiveTab('sentiment')}
-            title="AI 情绪看板"
-          >
-            <BarChart size={18} />
-            <span className="nav-label-full">AI 情绪看板 (Sentiment)</span>
-            <span className="nav-label-short">情绪</span>
-          </div>
-
-          <div
-            className={`nav-item ${activeTab === 'radar' ? 'active' : ''}`}
-            onClick={() => setActiveTab('radar')}
-            title="全景雷达"
-          >
-            <Radar size={18} />
-            <span className="nav-label-full">全景雷达 (Radar)</span>
-            <span className="nav-label-short">雷达</span>
-          </div>
-
-          <div
-            className={`nav-item ${activeTab === 'index' ? 'active' : ''}`}
-            onClick={() => setActiveTab('index')}
-            title="指数K线"
-          >
-            <LineChart size={18} />
-            <span className="nav-label-full">指数K线 (Index)</span>
-            <span className="nav-label-short">K线</span>
-          </div>
-
-          <div
-            className={`nav-item ${activeTab === 'diagnosis' ? 'active' : ''}`}
-            onClick={() => setActiveTab('diagnosis')}
-            title="个股诊断"
-          >
-            <Stethoscope size={18} />
-            <span className="nav-label-full">个股诊断 (Diagnosis)</span>
-            <span className="nav-label-short">诊断</span>
-          </div>
-
-          <div
-            className={`nav-item ${activeTab === 'calendar' ? 'active' : ''}`}
-            onClick={() => setActiveTab('calendar')}
-            title="财经日历"
-          >
-            <CalendarDays size={18} />
-            <span className="nav-label-full">财经日历 (Calendar)</span>
-            <span className="nav-label-short">日历</span>
-          </div>
-
-          <div
-            className={`nav-item ${activeTab === 'concept' ? 'active' : ''}`}
-            onClick={() => setActiveTab('concept')}
-            title="热点题材"
-          >
-            <Flame size={18} />
-            <span className="nav-label-full">热点题材 (Themes)</span>
-            <span className="nav-label-short">题材</span>
-          </div>
-
-          <div
-            className={`nav-item ${activeTab === 'risk' ? 'active' : ''}`}
-            onClick={() => setActiveTab('risk')}
-            title="风险预警"
-          >
-            <ShieldAlert size={18} />
-            <span className="nav-label-full">风险预警 (Risk)</span>
-            <span className="nav-label-short">风险</span>
-          </div>
-
-          <div
-            className={`nav-item ${activeTab === 'ustech' ? 'active' : ''}`}
-            onClick={() => setActiveTab('ustech')}
-            title="美股科技"
-          >
-            <DollarSign size={18} />
-            <span className="nav-label-full">美股科技 (US Tech)</span>
-            <span className="nav-label-short">美股</span>
-          </div>
-
-          <div
-             className="nav-item"
-             onClick={handleLogout}
-             style={{color: '#d32f2f'}}
-             title="退出登录"
+            className="nav-item logout-item"
+            onClick={handleLogout}
+            title="退出登录"
           >
             <LogOut size={18} />
             <span>退出登录</span>
           </div>
-        </div>
-
-        <div className="sidebar-footer" style={{ marginTop: 'auto', fontSize: '0.8rem', color: '#888' }}>
-          <div style={{ position: 'relative', marginBottom: '15px' }}>
+          <div className="sidebar-footer">
             <DataSourceSelector />
+            <p>数据来源: AkShare</p>
+            <p>生成时间: 08:00 AM</p>
           </div>
-          <p>数据来源: AkShare</p>
-          <p>生成时间: 08:00 AM</p>
         </div>
       </div>
 
+      {/* ── Mobile Nav ── */}
+      <div className="mobile-nav">
+        <div className="mobile-nav-header">
+          <Activity color="#d32f2f" size={20} />
+          <span className="mobile-brand">小红花</span>
+          <div
+            className="mobile-logout"
+            onClick={handleLogout}
+            title="退出登录"
+          >
+            <LogOut size={16} />
+          </div>
+        </div>
+        <div className="mobile-nav-scroll">
+          {NAV_GROUPS.map(group => (
+            group.items.map(item => (
+              <div
+                key={item.key}
+                className={`mobile-nav-item ${activeTab === item.key ? 'active' : ''}`}
+                onClick={() => handleTabClick(item.key, group.key)}
+              >
+                {getIcon(item.icon, 14)}
+                <span>{item.labelShort}</span>
+              </div>
+            ))
+          ))}
+        </div>
+      </div>
+
+      {/* ── Main Content ── */}
       <div className="main-content">
-        {activeTab === 'watchlist' && (
-          <Watchlist />
-        )}
+        {activeTab === 'watchlist' && <Watchlist />}
 
         {activeTab === 'sentiment' && (
-           <SentimentDashboard data={sentimentData} loading={sentimentLoading} />
+          <SentimentDashboard data={sentimentData} loading={sentimentLoading} />
         )}
 
-          {activeTab === 'radar' && (
-            <DataSourceDashboard />
-          )}
+        {activeTab === 'radar' && <DataSourceDashboard />}
+        {activeTab === 'diagnosis' && <StockDiagnosis />}
+        {activeTab === 'index' && <IndexOverview />}
+        {activeTab === 'calendar' && <EconomicCalendar />}
+        {activeTab === 'concept' && <HotConcepts />}
+        {activeTab === 'risk' && <RiskAlerts />}
+        {activeTab === 'ustech' && <USTechStocks />}
 
-          {activeTab === 'diagnosis' ? (
-            <StockDiagnosis />
-          ) : null}
-
-          {activeTab === 'index' ? (
-            <IndexOverview />
-          ) : null}
-
-          {activeTab === 'calendar' ? (
-            <EconomicCalendar />
-          ) : null}
-
-          {activeTab === 'concept' ? (
-            <HotConcepts />
-          ) : null}
-
-          {activeTab === 'risk' ? (
-            <RiskAlerts />
-          ) : null}
-
-          {activeTab === 'ustech' ? (
-            <USTechStocks />
-          ) : null}
-
-          {(activeTab === 'daily' || activeTab === 'weekly') && (
+        {(activeTab === 'daily' || activeTab === 'weekly') && (
           <>
             <div className="report-controls">
-               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <label>选择日期: </label>
-                  <select 
-                    className="date-selector" 
-                    value={selectedDate} 
-                    onChange={handleDateChange}
-                    disabled={availableDates.length === 0}
-                  >
-                    {availableDates.map(date => (
-                      <option key={date} value={date}>{date}</option>
-                    ))}
-                    {availableDates.length === 0 && <option>无数据</option>}
-                  </select>
-               </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <label>选择日期: </label>
+                <select
+                  className="date-selector"
+                  value={selectedDate}
+                  onChange={handleDateChange}
+                  disabled={availableDates.length === 0}
+                >
+                  {availableDates.map(date => (
+                    <option key={date} value={date}>{date}</option>
+                  ))}
+                  {availableDates.length === 0 && <option>无数据</option>}
+                </select>
+              </div>
 
-               <div className="view-tabs">
-                 <div 
-                   className={`view-tab ${viewMode === 'report' ? 'active' : ''}`}
-                   onClick={() => setViewMode('report')}
-                 >
-                   正文 Briefing
-                 </div>
-                 <div 
-                   className={`view-tab ${viewMode === 'source' ? 'active' : ''}`}
-                   onClick={() => setViewMode('source')}
-                 >
-                   数据源 Source Data
-                 </div>
-               </div>
+              <div className="view-tabs">
+                <div
+                  className={`view-tab ${viewMode === 'report' ? 'active' : ''}`}
+                  onClick={() => setViewMode('report')}
+                >
+                  正文 Briefing
+                </div>
+                <div
+                  className={`view-tab ${viewMode === 'source' ? 'active' : ''}`}
+                  onClick={() => setViewMode('source')}
+                >
+                  数据源 Source Data
+                </div>
+              </div>
 
-               <button 
-                 onClick={handleGenerate} 
-                 disabled={generating}
-                 style={{
-                   marginLeft: 'auto',
-                   display: 'flex',
-                   alignItems: 'center',
-                   gap: '6px',
-                   padding: '8px 16px',
-                   borderRadius: '6px',
-                   border: 'none',
-                   backgroundColor: generating ? '#e0e0e0' : '#d32f2f',
-                   color: 'white',
-                   cursor: generating ? 'not-allowed' : 'pointer',
-                   fontSize: '14px',
-                   fontWeight: '500',
-                   transition: 'background-color 0.2s'
-                 }}
-               >
-                 {generating ? <RefreshCw size={16} className="animate-spin" /> : <Play size={16} fill="white" />}
-                 {generating ? '生成中...' : `生成${activeTab === 'weekly' ? '周报' : '日报'}`}
-               </button>
+              <button
+                onClick={handleGenerate}
+                disabled={generating}
+                style={{
+                  marginLeft: 'auto',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '8px 16px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  backgroundColor: generating ? '#e0e0e0' : '#d32f2f',
+                  color: 'white',
+                  cursor: generating ? 'not-allowed' : 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  transition: 'background-color 0.2s'
+                }}
+              >
+                {generating ? <RefreshCw size={16} className="animate-spin" /> : <Play size={16} fill="white" />}
+                {generating ? '生成中...' : `生成${activeTab === 'weekly' ? '周报' : '日报'}`}
+              </button>
             </div>
 
             {loading && <div className="loading">加载中...</div>}
-            
             {error && <div className="error">加载失败: {error}</div>}
-            
+
             {!loading && !error && currentReport && viewMode === 'report' && (
               <div className="report-card">
                 <ReportViewer htmlContent={currentReport.content_html} />
