@@ -77,11 +77,17 @@
   display: flex;
   gap: 0.5rem;
   margin-bottom: 1.25rem;
+  position: relative;
+}
+
+.watchlist-search-wrapper {
+  flex: 1;
+  max-width: 400px;
+  position: relative;
 }
 
 .watchlist-search-input {
-  flex: 1;
-  max-width: 320px;
+  width: 100%;
   padding: 0.55rem 0.9rem;
   border: 1px solid #d1d5db;
   border-radius: 0.5rem;
@@ -89,6 +95,7 @@
   color: #1e293b;
   font-size: 0.9rem;
   transition: border-color 0.2s;
+  box-sizing: border-box;
 }
 
 .watchlist-search-input::placeholder {
@@ -459,4 +466,122 @@
   .wl-ohlc {
     font-size: 0.65rem;
   }
+
+  .watchlist-search-wrapper {
+    max-width: none;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Search Suggestions Dropdown
+   ═══════════════════════════════════════════════════════════════ */
+
+.search-spinner {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  border: 2px solid #e5e7eb;
+  border-top-color: #6366f1;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: translateY(-50%) rotate(360deg); }
+}
+
+.search-suggestions {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  z-index: 1000;
+  max-height: 320px;
+  overflow-y: auto;
+  animation: dropdownFadeIn 0.15s ease-out;
+}
+
+@keyframes dropdownFadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.search-suggestion-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: background-color 0.1s ease;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.search-suggestion-item:last-child {
+  border-bottom: none;
+}
+
+.search-suggestion-item:hover {
+  background-color: #f8fafc;
+}
+
+.search-suggestion-item.disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.search-suggestion-item.disabled:hover {
+  background-color: transparent;
+}
+
+.suggestion-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.suggestion-name {
+  font-size: 14px;
+  color: #1e293b;
+  font-weight: 500;
+}
+
+.suggestion-symbol {
+  font-size: 12px;
+  color: #94a3b8;
+  font-family: 'Consolas', 'Monaco', monospace;
+}
+
+.suggestion-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.suggestion-market {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-weight: 500;
+}
+
+.suggestion-market.cn {
+  background-color: #fef2f2;
+  color: #dc2626;
+}
+
+.suggestion-market.us {
+  background-color: #eff6ff;
+  color: #2563eb;
+}
+
+.suggestion-added {
+  font-size: 11px;
+  color: #9ca3af;
 }

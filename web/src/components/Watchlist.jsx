@@ -194,6 +194,13 @@ const Watchlist = () => {
   const [addInput, setAddInput] = useState('');
   const [updatedAt, setUpdatedAt] = useState(null);
 
+  // Search suggestions state
+  const [suggestions, setSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const searchTimerRef = useRef(null);
+  const suggestionsRef = useRef(null);
+
   // persist symbols
   useEffect(() => { saveWatchlist(symbols); }, [symbols]);
 
@@ -201,6 +208,42 @@ const Watchlist = () => {
   useEffect(() => {
     localStorage.setItem('watchlist_pinned', JSON.stringify([...pinnedSet]));
   }, [pinnedSet]);
+
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    const handleClick = (e) => {
+      if (suggestionsRef.current && !suggestionsRef.current.contains(e.target)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  // Debounced search
+  const handleSearchInput = (value) => {
+    setAddInput(value);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+
+    if (value.trim().length === 0) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    searchTimerRef.current = setTimeout(async () => {
+      setSearchLoading(true);
+      try {
+        const res = await fetch(`/api/watchlist/search?q=${encodeURIComponent(value.trim())}&count=8`);
+        if (res.ok) {
+          const data = await res.json();
+          setSuggestions(data.results || []);
+          setShowSuggestions(true);
+        }
+      } catch { /* ignore */ }
+      setSearchLoading(false);
+    }, 300);
+  };
 
   // 异步获取趋势数据（逐个请求，到了就更新卡片）
   const fetchTrends = async (symbolList) => {
@@ -263,12 +306,18 @@ const Watchlist = () => {
   }, [fetchData]);
 
   // handlers
-  const handleAdd = () => {
-    const sym = addInput.trim().toUpperCase();
+  const handleAdd = (sym) => {
+    sym = (sym || addInput).trim().toUpperCase();
     if (!sym) return;
-    if (symbols.includes(sym)) { setAddInput(''); return; }
+    if (symbols.includes(sym)) { setAddInput(''); setShowSuggestions(false); return; }
     setSymbols(prev => [...prev, sym]);
     setAddInput('');
+    setSuggestions([]);
+    setShowSuggestions(false);
+  };
+
+  const handleSuggestionClick = (item) => {
+    handleAdd(item.symbol);
   };
 
   const handleRemove = (sym) => {
@@ -316,17 +365,48 @@ const Watchlist = () => {
           </div>
         </div>
 
-        {/* Add bar */}
-        <div className="watchlist-add-bar">
-          <input
-            className="watchlist-search-input"
-            type="text"
-            placeholder="输入股票代码 (如 TSLA 或 000001)"
-            value={addInput}
-            onChange={e => setAddInput(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') handleAdd(); }}
-          />
-          <button className="wl-add-btn" onClick={handleAdd}>
+        {/* Add bar with search suggestions */}
+        <div className="watchlist-add-bar" ref={suggestionsRef}>
+          <div className="watchlist-search-wrapper">
+            <input
+              className="watchlist-search-input"
+              type="text"
+              placeholder="搜索股票名称、代码或拼音 (如 平安、MSFT、gzmt)"
+              value={addInput}
+              onChange={e => handleSearchInput(e.target.value)}
+              onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true); }}
+              onKeyDown={e => { if (e.key === 'Enter') handleAdd(); }}
+            />
+            {searchLoading && <div className="search-spinner" />}
+
+            {/* Suggestions Dropdown */}
+            {showSuggestions && suggestions.length > 0 && (
+              <div className="search-suggestions">
+                {suggestions.map((item, idx) => {
+                  const alreadyAdded = symbols.includes(item.symbol.toUpperCase());
+                  return (
+                    <div
+                      key={`${item.symbol}-${idx}`}
+                      className={`search-suggestion-item ${alreadyAdded ? 'disabled' : ''}`}
+                      onClick={() => { if (!alreadyAdded) handleSuggestionClick(item); }}
+                    >
+                      <div className="suggestion-main">
+                        <span className="suggestion-name">{item.name}</span>
+                        <span className="suggestion-symbol">{item.symbol}</span>
+                      </div>
+                      <div className="suggestion-meta">
+                        <span className={`suggestion-market ${item.market === '美股' ? 'us' : 'cn'}`}>
+                          {item.market}
+                        </span>
+                        {alreadyAdded && <span className="suggestion-added">已添加</span>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+          <button className="wl-add-btn" onClick={() => handleAdd()}>
             <Plus size={15} /> 添加
           </button>
         </div>

@@ -446,3 +446,83 @@ def get_watchlist_trend(symbol: str = Query(..., description="Single stock symbo
             trend = []
 
     return {"symbol": symbol, "trend": trend}
+
+
+# ── Stock Search (fuzzy) ─────────────────────────────────────────
+
+_EASTMONEY_SEARCH_URL = "https://searchapi.eastmoney.com/api/suggest/get"
+_EASTMONEY_SEARCH_TOKEN = "D43BF722C8E33BDC906FB84D85E326E8"
+
+# Classify → market label mapping
+_CLASSIFY_MAP = {
+    "AStock": "A股",
+    "Fund": "基金",
+    "HK": "港股",
+}
+
+
+@router.get("/search")
+def search_stocks(q: str = Query(..., min_length=1, max_length=20, description="搜索关键字（股票名/代码/拼音）"),
+                  count: int = Query(8, ge=1, le=20)):
+    """模糊搜索股票，支持中文名、拼音首字母、代码。
+    使用东方财富 searchapi，返回 A 股 + 美股结果。
+    """
+    q = q.strip()
+    if not q:
+        return {"results": []}
+
+    # Check cache first (60s TTL)
+    cache_key = f"stock_search_{q}_{count}"
+    cached = get_cache(cache_key)
+    if cached is not None:
+        return cached
+
+    results = []
+
+    try:
+        resp = requests.get(
+            _EASTMONEY_SEARCH_URL,
+            params={
+                "input": q,
+                "type": "14",
+                "token": _EASTMONEY_SEARCH_TOKEN,
+                "count": str(count),
+            },
+            timeout=3,
+        )
+        data = resp.json()
+        items = data.get("QuotationCodeTable", {}).get("Data") or []
+
+        for item in items:
+            code = item.get("Code", "")
+            name = item.get("Name", "")
+            classify = item.get("Classify", "")
+            sec_type = item.get("SecurityTypeName", "")
+
+            # Filter: only A-share (沪A/深A) and US stocks
+            market = ""
+            classify_lower = classify.lower()
+            if classify == "AStock":
+                market = "A股"
+            elif classify_lower.startswith("usstock"):
+                market = "美股"
+            elif classify == "Fund":
+                # Include ETFs (场内基金)
+                market = "基金"
+            else:
+                # Skip HK, bonds, etc.
+                continue
+
+            results.append({
+                "symbol": code,
+                "name": name,
+                "market": market,
+                "type": sec_type,
+            })
+
+    except Exception as e:
+        logger.error(f"Stock search failed for '{q}': {e}")
+
+    response = {"results": results}
+    set_cache(cache_key, response, 60)  # cache 60s
+    return response

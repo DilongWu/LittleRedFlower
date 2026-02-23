@@ -192,12 +192,14 @@ body {
 
 .report-card {
   background: white;
-  width: 800px;
+  max-width: 800px;
+  width: 100%;
   min-height: 1000px;
   padding: 40px;
   box-shadow: 0 4px 15px rgba(0,0,0,0.05);
   border-radius: 8px;
   margin-bottom: 40px;
+  box-sizing: border-box;
 }
 
 .report-content table {
@@ -254,7 +256,8 @@ body {
 /* ─── Source Data Views ─── */
 .source-view-card {
   background: white;
-  width: 900px;
+  max-width: 900px;
+  width: 100%;
   min-height: 800px;
   padding: 0;
   box-shadow: 0 4px 15px rgba(0,0,0,0.05);
@@ -263,6 +266,7 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  box-sizing: border-box;
 }
 
 .source-header {
