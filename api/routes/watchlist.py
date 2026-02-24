@@ -37,7 +37,7 @@ def _is_a_share(symbol: str) -> bool:
 # 替代 stock_zh_a_spot_em() 全量拉取（5000+ 只股票，2分钟，易OOM）
 # 单股查询 <1 秒，支持 A 股 + ETF/基金
 
-_EASTMONEY_PUSH_URL = "https://push2.eastmoney.com/api/qt/stock/get"
+_EASTMONEY_PUSH_URL = "https://push2delay.eastmoney.com/api/qt/stock/get"
 _EASTMONEY_UT = "fa5fd1943c7b386f172d6893dbfba10b"
 _EASTMONEY_FIELDS = "f43,f44,f45,f46,f47,f48,f57,f58,f59,f116,f169,f170"
 
@@ -69,7 +69,8 @@ def _fetch_single_quote_em(symbol: str) -> Optional[dict]:
         "fields": _EASTMONEY_FIELDS,
     }
     try:
-        resp = requests.get(_EASTMONEY_PUSH_URL, params=params, timeout=5)
+        resp = requests.get(_EASTMONEY_PUSH_URL, params=params, timeout=5,
+                            headers={"User-Agent": "Mozilla/5.0"})
         data = resp.json().get("data")
         if not data or data.get("f43") == "-":
             return None
