@@ -1,6 +1,7 @@
 import os
 import json
 import asyncio
+import logging
 from concurrent.futures import ThreadPoolExecutor
 from fastapi import FastAPI, HTTPException, Query, BackgroundTasks, Body
 from fastapi.middleware.cors import CORSMiddleware
@@ -258,12 +259,26 @@ async def trigger_quotes_refresh(background_tasks: BackgroundTasks):
 @app.get("/api/market/radar")
 async def get_market_radar():
     """Get real-time market radar data (heatmaps, ladders)"""
-    return get_market_radar_data()
+    loop = asyncio.get_event_loop()
+    try:
+        return await asyncio.wait_for(
+            loop.run_in_executor(_executor, get_market_radar_data),
+            timeout=15
+        )
+    except asyncio.TimeoutError:
+        return {"sectors": [], "ladder": {}, "error": "数据获取超时"}
 
 @app.post("/api/stock/diagnosis")
 async def stock_diagnosis(request: StockDiagnosisRequest):
     """Get basic stock diagnosis based on recent price/volume and fundamentals."""
-    result = get_stock_diagnosis(request.symbol, request.days)
+    loop = asyncio.get_event_loop()
+    try:
+        result = await asyncio.wait_for(
+            loop.run_in_executor(_executor, lambda: get_stock_diagnosis(request.symbol, request.days)),
+            timeout=15
+        )
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="诊断数据获取超时")
     if isinstance(result, dict) and result.get("error"):
         raise HTTPException(status_code=400, detail=result["error"])
     return result
@@ -271,12 +286,26 @@ async def stock_diagnosis(request: StockDiagnosisRequest):
 @app.get("/api/index/overview")
 async def index_overview():
     """Get index K-line overview for major indexes."""
-    return get_index_overview()
+    loop = asyncio.get_event_loop()
+    try:
+        return await asyncio.wait_for(
+            loop.run_in_executor(_executor, get_index_overview),
+            timeout=15
+        )
+    except asyncio.TimeoutError:
+        return []
 
 @app.get("/api/fund/flow")
 async def fund_flow_rank():
     """[DEPRECATED] Get fund flow ranking. Use /api/calendar/economic instead."""
-    result = get_fund_flow_rank()
+    loop = asyncio.get_event_loop()
+    try:
+        result = await asyncio.wait_for(
+            loop.run_in_executor(_executor, get_fund_flow_rank),
+            timeout=15
+        )
+    except asyncio.TimeoutError:
+        return {"data": [], "error": "数据获取超时"}
     if isinstance(result, dict) and result.get("error"):
         raise HTTPException(status_code=400, detail=result["error"])
     return result
@@ -294,8 +323,22 @@ async def economic_calendar(week: int = Query(0, description="Week offset: 0=thi
 @app.get("/api/concept/hot")
 @app.get("/api/concepts/hot")  # Add plural form for consistency
 async def concept_hot():
-    """Get hot concept list ranked by change percent."""
-    result = get_hot_concepts()
+    """Get hot concept list ranked by change percent (with timeout protection)."""
+    import asyncio
+    loop = asyncio.get_event_loop()
+    try:
+        result = await asyncio.wait_for(
+            loop.run_in_executor(_executor, get_hot_concepts),
+            timeout=15  # 15 second hard timeout
+        )
+    except asyncio.TimeoutError:
+        logging.warning("Hot concepts API timed out after 15s")
+        return {
+            "date": "",
+            "data_source": "timeout",
+            "data": [],
+            "note": "数据获取超时，请稍后重试"
+        }
     if isinstance(result, dict) and result.get("error"):
         raise HTTPException(status_code=400, detail=result["error"])
     return result
@@ -425,29 +468,32 @@ async def get_dashboard_all():
 
     loop = asyncio.get_event_loop()
 
-    # Run all data fetching functions concurrently
-    radar_task = loop.run_in_executor(_executor, get_market_radar_data)
-    index_task = loop.run_in_executor(_executor, get_index_overview)
-    fund_task = loop.run_in_executor(_executor, get_fund_flow_rank)
-    concept_task = loop.run_in_executor(_executor, get_hot_concepts)
+    # Run all data fetching functions concurrently with timeout protection
+    async def safe_fetch(func, default, timeout_sec=15):
+        try:
+            return await asyncio.wait_for(
+                loop.run_in_executor(_executor, func),
+                timeout=timeout_sec
+            )
+        except asyncio.TimeoutError:
+            logging.warning(f"Dashboard fetch timed out: {func.__name__}")
+            return default
+        except Exception as e:
+            logging.warning(f"Dashboard fetch failed: {func.__name__}: {e}")
+            return default
 
-    # Wait for all tasks to complete
-    results = await asyncio.gather(
-        radar_task, index_task, fund_task, concept_task,
-        return_exceptions=True
+    radar, index, fund, concepts = await asyncio.gather(
+        safe_fetch(get_market_radar_data, {"sectors": [], "ladder": {}}),
+        safe_fetch(get_index_overview, []),
+        safe_fetch(get_fund_flow_rank, {"data": []}),
+        safe_fetch(get_hot_concepts, {"data": []}),
     )
 
-    # Process results, handle any exceptions
-    def safe_result(r, default):
-        if isinstance(r, Exception):
-            return default
-        return r
-
     result = {
-        "radar": safe_result(results[0], {"sectors": [], "ladder": {}}),
-        "index": safe_result(results[1], []),
-        "fund_flow": safe_result(results[2], {"data": []}),
-        "concepts": safe_result(results[3], {"data": []}),
+        "radar": radar,
+        "index": index,
+        "fund_flow": fund,
+        "concepts": concepts,
     }
 
     # Cache the aggregated result for 5 minutes

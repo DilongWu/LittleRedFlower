@@ -5,6 +5,7 @@ import math
 from api.services.data_source import get_data_source, fetch_with_fallback
 from api.services.cache import get_cache, set_cache
 from api.services.http_client import fetch_with_retry
+from api.services.eastmoney_direct import get_concept_board_direct
 
 
 def _clean_float(val):
@@ -15,6 +16,12 @@ def _clean_float(val):
         return f
     except (ValueError, TypeError):
         return None
+
+
+def _get_concepts_direct(limit):
+    """Get hot concepts via direct Eastmoney API (push2delay, works overseas)."""
+    result = get_concept_board_direct(limit=limit)
+    return result
 
 
 def _get_concepts_tushare(limit):
@@ -98,26 +105,37 @@ def _get_concepts_sina(ak, limit):
 def get_hot_concepts(limit: int = 15):
     """
     Get hot concepts with caching and automatic fallback between data sources.
-    Optimized to only return top N concepts for better performance.
+    Priority: direct API (push2delay) > tushare > akshare eastmoney > akshare sina
     """
-    import akshare as ak
-
-    current_source = get_data_source()
-    cache_key = f"hot_concepts_{current_source}"
+    cache_key = "hot_concepts_v2"
 
     # Check cache first
     cached_data = get_cache(cache_key)
     if cached_data is not None:
         return cached_data
 
-    # Build fetch functions for each source
+    # Try direct Eastmoney API first (most reliable from overseas)
+    direct_result = _get_concepts_direct(limit)
+    if direct_result:
+        data = {
+            "date": datetime.datetime.now().strftime("%Y%m%d"),
+            "data_source": "eastmoney_direct",
+            "data": direct_result,
+            "note": f"显示TOP {len(direct_result)} 热门题材"
+        }
+        set_cache(cache_key, data, 1800)  # 30 minutes
+        return data
+
+    # Fallback to other sources
+    import akshare as ak
+    current_source = get_data_source()
+
     fetch_funcs = {
         "tushare": lambda: _get_concepts_tushare(limit),
         "eastmoney": lambda: _get_concepts_eastmoney(ak, limit),
         "sina": lambda: _get_concepts_sina(ak, limit),
     }
 
-    # Try to fetch with automatic fallback
     result, source_used = fetch_with_fallback(fetch_funcs, "hot concepts")
 
     if result:
@@ -127,7 +145,7 @@ def get_hot_concepts(limit: int = 15):
             "data": result,
             "note": f"显示TOP {len(result)} 热门题材"
         }
-        set_cache(cache_key, data, 1800)  # 30 minutes (increased from 10)
+        set_cache(cache_key, data, 1800)
         return data
 
     # Return empty data and cache for short time
@@ -137,5 +155,5 @@ def get_hot_concepts(limit: int = 15):
         "data": [],
         "note": "数据获取失败，请稍后重试"
     }
-    set_cache(cache_key, empty_data, 120)  # 2 minutes for errors
+    set_cache(cache_key, empty_data, 120)
     return empty_data

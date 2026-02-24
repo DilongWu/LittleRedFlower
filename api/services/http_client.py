@@ -120,8 +120,8 @@ def fetch_with_retry(func, *args, max_retries=3, timeout=30, **kwargs):
             is_retryable = any(x in error_msg for x in retryable_errors)
 
             if is_retryable and attempt < max_retries:
-                # Exponential backoff: 3s, 6s, 12s (longer waits for overseas servers)
-                wait_time = min(3 ** (attempt + 1), 15)
+                # Exponential backoff: 2s, 4s (capped to avoid long hangs)
+                wait_time = min(2 ** (attempt + 1), 6)
                 logging.warning(f"Retry {attempt + 1}/{max_retries} after {wait_time}s: {str(e)[:80]}")
                 time.sleep(wait_time)
                 continue
