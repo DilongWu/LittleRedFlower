@@ -1,6 +1,7 @@
 """
 AI Chat Service for Market Analysis
 Provides intelligent chat responses with market context awareness
+Supports Yahoo Finance tools via OpenAI function calling
 """
 
 import os
@@ -8,6 +9,7 @@ import json
 from typing import Optional, List, Dict
 from openai import AzureOpenAI
 from azure.identity import DefaultAzureCredential
+from api.services.finance_tools import FINANCE_TOOLS, execute_tool
 
 
 def load_config():
@@ -19,7 +21,7 @@ def load_config():
             "apiKey": os.getenv("AZURE_OPENAI_API_KEY"),
             "deploymentName": os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-4.1-mini"),
             "managedIdentityClientId": os.getenv("AZURE_MANAGED_IDENTITY_CLIENT_ID"),
-            "maxTokens": int(os.getenv("AZURE_OPENAI_MAX_TOKENS", "500")),
+            "maxTokens": int(os.getenv("AZURE_OPENAI_MAX_TOKENS", "800")),
             "temperature": float(os.getenv("AZURE_OPENAI_TEMPERATURE", "0.7"))
         }
 
@@ -84,19 +86,21 @@ class ChatService:
 
     def build_system_prompt(self, market_context: Optional[Dict] = None) -> str:
         """Build system prompt with market context"""
-        base_prompt = """你是一名专业的中国股市分析师助手。
+        base_prompt = """你是一名专业的股市分析师助手，擅长中国股市和美股。
 
 你的职责：
 - 回答用户关于市场、股票、板块的问题
 - 提供客观、专业的分析建议
 - 基于提供的市场数据进行分析
 - 使用清晰、专业的中文表达
+- 当用户询问美股相关信息时，使用工具获取实时数据
 
 回答要求：
-- 简洁明了，控制在200字以内
+- 简洁明了，控制在300字以内
 - 客观中立，避免夸大
 - 如果数据不足，坦诚说明
-- 重要风险必须提示"""
+- 重要风险必须提示
+- 回答中包含具体数字时要标注数据来源为Yahoo Finance"""
 
         # Add market context if available
         if market_context:
@@ -163,15 +167,49 @@ class ChatService:
             # Add current user message
             messages.append({"role": "user", "content": user_message})
 
-            # Call Azure OpenAI
+            # Call Azure OpenAI with tools
             response = self.client.chat.completions.create(
                 model=AZURE_CONFIG.get("deploymentName", "gpt-4.1-mini"),
                 messages=messages,
                 temperature=AZURE_CONFIG.get("temperature", 0.7),
-                max_tokens=AZURE_CONFIG.get("maxTokens", 500)
+                max_tokens=AZURE_CONFIG.get("maxTokens", 500),
+                tools=FINANCE_TOOLS,
+                tool_choice="auto"
             )
 
-            return response.choices[0].message.content.strip()
+            msg = response.choices[0].message
+
+            # Handle tool calls (function calling loop)
+            max_iterations = 3
+            iteration = 0
+            while msg.tool_calls and iteration < max_iterations:
+                iteration += 1
+                # Append assistant message with tool calls
+                messages.append(msg)
+
+                # Execute each tool call and append results
+                for tool_call in msg.tool_calls:
+                    func_name = tool_call.function.name
+                    func_args = json.loads(tool_call.function.arguments)
+                    tool_result = execute_tool(func_name, func_args)
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": tool_call.id,
+                        "content": tool_result
+                    })
+
+                # Get next response
+                response = self.client.chat.completions.create(
+                    model=AZURE_CONFIG.get("deploymentName", "gpt-4.1-mini"),
+                    messages=messages,
+                    temperature=AZURE_CONFIG.get("temperature", 0.7),
+                    max_tokens=AZURE_CONFIG.get("maxTokens", 500),
+                    tools=FINANCE_TOOLS,
+                    tool_choice="auto"
+                )
+                msg = response.choices[0].message
+
+            return msg.content.strip() if msg.content else "抱歉，无法生成回答。"
 
         except Exception as e:
             error_msg = str(e)
