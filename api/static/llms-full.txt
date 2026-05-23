@@ -1,0 +1,172 @@
+# LittleRedFlower（小红花）— Full API Reference for LLMs
+
+> AI 驱动的智能金融资讯平台，提供 A 股 / 港股 / 美股的研报聚合、行情快照、概念热度、资金流向、经济日历，并通过 LLM 生成每日早报与个性化摘要。
+
+本文件是 `/llms.txt` 的扩展版，**包含每个 API 的完整调用示例、返回 schema、字段说明**，agent 可一次 fetch 之后无需再翻 Swagger。
+
+- Base URL: `https://littleredflower.azurewebsites.net`
+- 所有 endpoint 返回 `application/json`，UTF-8
+- 时区：A 股 / 港股 = Asia/Shanghai；美股 = US/Eastern；返回字段中 `date` 形如 `20260523` 或 `2026-05-23`
+- 限流：建议 QPS ≤ 5；连续 429 时退避 60s
+
+---
+
+## GET /api/reports
+列出全部历史报告的索引。
+
+**Request**: 无参数
+**Response**: `Array<Report>`
+
+```json
+[
+  {"date":"2026-05-22","type":"daily","filename":"2026-05-22_daily.json"},
+  {"date":"2026-05-22","type":"sentiment","filename":"2026-05-22_sentiment.json"}
+]
+```
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `date` | string | YYYY-MM-DD |
+| `type` | string | `daily` 早报 / `sentiment` 情绪报告 |
+| `filename` | string | 内部文件名 |
+
+---
+
+## GET /api/reports/{date}/data
+获取指定日期早报的结构化全文。
+
+**Path Param**: `date` 形如 `2026-05-22`
+**Response**: `object`（结构化早报，包含 sections / summary / highlights / charts 等字段，由生成器版本决定）
+
+调用示例：
+```
+GET /api/reports/2026-05-22/data
+```
+
+---
+
+## GET /api/index/overview
+A 股 + 港股 + 美股核心指数最新行情 + 30 日序列。
+
+**Response**: `Array<Index>`
+
+```json
+[
+  {
+    "date":"20260522",
+    "close":4112.9,
+    "change_pct":0.87,
+    "ma5":4130.69,
+    "ma20":4141.65,
+    "series":[3995.0, ...],
+    "name":"上证指数",
+    "symbol":"sh000001",
+    "data_source":"tushare"
+  }
+]
+```
+
+| 字段 | 说明 |
+|---|---|
+| `close` | 最新收盘价 |
+| `change_pct` | 日涨跌幅 % |
+| `ma5` / `ma20` | 5/20 日均线 |
+| `series` | 最近 30 日收盘序列 |
+| `data_source` | `tushare` / `eastmoney_direct` / `akshare` |
+
+覆盖指数：上证、深证成指、创业板指、科创 50、恒生指数、恒生科技、纳指、标普 500、道指。
+
+---
+
+## GET /api/fund/flow
+个股资金净流入 TOP 排行（主力资金）。
+
+**Response**:
+```json
+{
+  "date":"20260523",
+  "data_source":"tushare",
+  "data":[
+    {"code":"300476","name":"胜宏科技","price":375.5,"change_pct":null,"net_inflow":697203.62,"net_ratio":191679.0}
+  ]
+}
+```
+
+| 字段 | 单位 |
+|---|---|
+| `net_inflow` | 万元 |
+| `net_ratio` | % 占比 |
+| `price` | 最新价 |
+
+---
+
+## GET /api/concepts/hot
+当日热门概念板块（涨幅榜）。同 `/api/concept/hot`。
+
+```json
+{
+  "date":"20260523",
+  "data_source":"eastmoney_direct",
+  "data":[
+    {"name":"MLCC","change":11.22,"lead":"风华高科"},
+    {"name":"PCB","change":7.01,"lead":"鹏鼎控股"}
+  ]
+}
+```
+
+| 字段 | 说明 |
+|---|---|
+| `name` | 概念板块名 |
+| `change` | 板块涨跌幅 % |
+| `lead` | 龙头股名称 |
+
+---
+
+## GET /api/market/radar
+市场异动雷达：涨停 / 跌停 / 放量 / 新高 / 大单等聚合。
+
+**Response**: 结构化对象，按维度分组。建议先调用一次实地观察 schema。
+
+---
+
+## GET /api/sentiment
+市场情绪指标（恐慌贪婪指数、北向资金情绪、行业轮动温度等）。
+
+---
+
+## GET /api/calendar/economic
+全球宏观经济事件日历（CPI / PMI / 加息决议 / 非农 / 重要财报）。
+
+---
+
+## GET /api/us-tech/latest
+美股科技股最新行情快照（FAANG + Mag7 + 半导体头部）。
+辅助 endpoint: `GET /api/us-tech/cache/stats` 查看缓存命中率。
+
+---
+
+## GET /api/datasource
+上游数据源健康状态。
+- `GET /api/datasource/test` 主动 ping 所有上游
+- `GET /api/datasource/tushare-token` 查看当前 token 剩余调用量（敏感，建议鉴权后访问）
+
+---
+
+## GET /api/dashboard/all
+**推荐入口**。首页所需全部数据一次性聚合：指数 + 资金流 + 概念 + 情绪 + 早报摘要。
+适合 agent 做"早晨 5 秒概览"的一次性拉取。
+
+---
+
+## 给 Agent 的最佳实践
+
+1. **批量摘要场景**：直接调 `/api/dashboard/all`，省 5 次 round-trip
+2. **追踪某板块**：先调 `/api/concepts/hot` 拿龙头，再调 `/api/fund/flow` 看资金
+3. **生成日报**：`/api/reports/{date}/data` 已经是 LLM-friendly 结构化早报，可直接二次包装
+4. **缓存策略**：交易时段 5 分钟刷新；非交易时段 1 小时即可
+5. **错误处理**：5xx 时建议指数退避；4xx 通常是参数错误，别重试
+
+## 联系
+
+- Repo: https://github.com/DilongWu/LittleRedFlower
+- Issue / 合作: https://github.com/DilongWu/LittleRedFlower/issues

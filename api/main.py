@@ -566,7 +566,9 @@ async def chat_endpoint(request: dict):
 
 # AI/LLM discovery files (llms.txt protocol - https://llmstxt.org/)
 # Must be defined BEFORE static mount to avoid being shadowed by SPA fallback.
-_LLMS_TXT_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "llms.txt")
+_LLMS_STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+_LLMS_TXT_PATH = os.path.join(_LLMS_STATIC_DIR, "llms.txt")
+_LLMS_FULL_PATH = os.path.join(_LLMS_STATIC_DIR, "llms-full.txt")
 
 @app.get("/llms.txt", include_in_schema=False)
 async def llms_txt():
@@ -574,6 +576,13 @@ async def llms_txt():
     if os.path.exists(_LLMS_TXT_PATH):
         return FileResponse(_LLMS_TXT_PATH, media_type="text/markdown; charset=utf-8")
     return PlainTextResponse("llms.txt not found", status_code=404)
+
+@app.get("/llms-full.txt", include_in_schema=False)
+async def llms_full_txt():
+    from fastapi.responses import FileResponse, PlainTextResponse
+    if os.path.exists(_LLMS_FULL_PATH):
+        return FileResponse(_LLMS_FULL_PATH, media_type="text/markdown; charset=utf-8")
+    return PlainTextResponse("llms-full.txt not found", status_code=404)
 
 # Serve Frontend Static Files (After API routes to avoid conflict)
 # In production, we assume 'web/dist' exists
