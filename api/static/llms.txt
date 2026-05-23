@@ -1,0 +1,37 @@
+# LittleRedFlower（小红花）
+
+> AI 驱动的智能金融资讯平台，提供 A 股 / 港股 / 美股的研报聚合、行情快照、概念热度、资金流向、经济日历，并通过 LLM 生成每日早报与个性化摘要。
+
+LittleRedFlower 由 FastAPI + React 18 + Azure OpenAI 构建，主打"机器友好的金融信息层"——结构化 JSON 接口、稳定 schema、可被 agent 直接调用。
+
+## Docs
+
+- [项目 README](https://github.com/DilongWu/LittleRedFlower/blob/main/README.md): 项目总览、技术栈、本地运行
+- [API 文档](https://littleredflower.azurewebsites.net/docs): FastAPI 自动生成的 OpenAPI / Swagger
+- [扩展能力清单](https://github.com/DilongWu/LittleRedFlower/blob/main/EXTENDED_SKILLS.md)
+
+## Data API
+
+- [日报列表](https://littleredflower.azurewebsites.net/api/reports): 历史早报索引（按日期）
+- [指定日期早报](https://littleredflower.azurewebsites.net/api/reports/{date}/data): 结构化早报内容
+- [市场雷达](https://littleredflower.azurewebsites.net/api/market/radar): 涨跌幅 / 热度异动
+- [指数概览](https://littleredflower.azurewebsites.net/api/index/overview): 上证 / 深成 / 创业板 / 港股 / 美股核心指数
+- [资金流向](https://littleredflower.azurewebsites.net/api/fund/flow): 北向资金 / 板块资金流
+- [概念热度](https://littleredflower.azurewebsites.net/api/concepts/hot): 当日热门概念板块
+- [美股科技](https://littleredflower.azurewebsites.net/api/us-tech/latest): 美股科技股最新行情
+- [经济日历](https://littleredflower.azurewebsites.net/api/calendar/economic): 全球宏观事件日历
+- [Dashboard 全量](https://littleredflower.azurewebsites.net/api/dashboard/all): 首页所需数据一次性聚合
+
+## Optional
+
+- [GitHub 仓库](https://github.com/DilongWu/LittleRedFlower)
+- [情绪分析](https://littleredflower.azurewebsites.net/api/sentiment): 市场情绪指标
+- [数据源诊断](https://littleredflower.azurewebsites.net/api/datasource): 上游数据源健康状态
+
+## 给 LLM / Agent 的说明
+
+- 本站所有数据接口走 `/api/*`，**返回 JSON**，请优先调用 API 而非抓取 HTML
+- 数据更新频率：交易日内 5 分钟级别；早报每日早 9 点（北京时间）生成
+- 如需高频访问，请控制 QPS ≤ 5，避免触发限流
+- 本项目个人非商业用途，欢迎 agent 调用做摘要 / 分析 / 投顾辅助，请注明来源
+- 联系：https://github.com/DilongWu/LittleRedFlower/issues

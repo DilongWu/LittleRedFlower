@@ -564,6 +564,17 @@ async def chat_endpoint(request: dict):
         print(f"Chat endpoint error: {e}")
         raise HTTPException(status_code=500, detail="抱歉，发生了错误，请稍后重试。")
 
+# AI/LLM discovery files (llms.txt protocol - https://llmstxt.org/)
+# Must be defined BEFORE static mount to avoid being shadowed by SPA fallback.
+_LLMS_TXT_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "llms.txt")
+
+@app.get("/llms.txt", include_in_schema=False)
+async def llms_txt():
+    from fastapi.responses import FileResponse, PlainTextResponse
+    if os.path.exists(_LLMS_TXT_PATH):
+        return FileResponse(_LLMS_TXT_PATH, media_type="text/markdown; charset=utf-8")
+    return PlainTextResponse("llms.txt not found", status_code=404)
+
 # Serve Frontend Static Files (After API routes to avoid conflict)
 # In production, we assume 'web/dist' exists
 web_dist_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "web", "dist")
