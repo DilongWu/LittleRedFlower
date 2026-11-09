@@ -47,7 +47,11 @@ class WebAuth:
             conn.close()
 
     def guard(self, request):
-        expected = self.origin or str(request.base_url).rstrip('/')
+        # Production cookies require HTTPS. A TLS-terminating proxy may deliver
+        # HTTP internally, so its backend scheme is not the browser's origin.
+        # Keep the request Host check; never derive trust from forwarded headers.
+        base_url = request.base_url if self.local else request.base_url.replace(scheme='https')
+        expected = self.origin or str(base_url).rstrip('/')
         if request.headers.get('host') != urlsplit(expected).netloc or request.headers.get('origin') != expected:
             raise HTTPException(403, 'origin rejected')
 

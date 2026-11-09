@@ -165,8 +165,14 @@ function App() {
         setLoginPass('');
         setIsAuthenticated(true);
         setLoginError('');
-      } else {
+      } else if (response.status === 401) {
         setLoginError('用户名或密码错误');
+      } else if (response.status === 403) {
+        setLoginError('登录请求来源校验失败，请确认网站地址或联系管理员检查站点配置');
+      } else if (response.status === 429) {
+        setLoginError('登录尝试过于频繁，请稍后再试');
+      } else {
+        setLoginError('登录服务不可用，请稍后重试');
       }
     } catch (err) {
       setLoginError('登录服务不可用');
