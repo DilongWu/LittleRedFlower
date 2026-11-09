@@ -23,10 +23,8 @@ from api.services.chat import chat_service
 from api.services.us_stocks import get_us_tech_overview, save_us_tech_data, load_us_tech_data
 from api.services.cache import get_cache, set_cache
 from api.routes.watchlist import router as watchlist_router
-
-class LoginRequest(BaseModel):
-    username: str
-    password: str
+from api.voice import load_voice_app
+from api.auth import WebAuth
 
 class StockDiagnosisRequest(BaseModel):
     symbol: str
@@ -52,6 +50,21 @@ app = FastAPI(lifespan=lifespan, title="Little Red Flower API")
 
 # Include routers
 app.include_router(watchlist_router)
+web_auth = WebAuth()
+app.include_router(web_auth.router)
+app.mount("/api/voice", load_voice_app(auth=web_auth), name="voice")
+
+@app.middleware("http")
+async def voice_page_headers(request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith("/voice/"):
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Referrer-Policy"] = "no-referrer"
+        response.headers["Permissions-Policy"] = "microphone=(self), screen-wake-lock=(self)"
+    return response
+
 
 # GZip compression (reduces transfer size for JSON responses)
 app.add_middleware(GZipMiddleware, minimum_size=500)
@@ -64,17 +77,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-@app.post("/api/login")
-async def login(request: LoginRequest):
-    # Retrieve credentials from environment variables or use default
-    expected_username = os.getenv("ADMIN_USERNAME", "admin")
-    expected_password = os.getenv("ADMIN_PASSWORD", "littleredfloweradmin")
-    
-    if request.username == expected_username and request.password == expected_password:
-        return {"status": "success", "token": "valid_token_from_server"}
-    else:
-        raise HTTPException(status_code=401, detail="Invalid credentials")
 
 @app.get("/api/reports")
 async def list_reports():

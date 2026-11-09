@@ -438,3 +438,7 @@ az webapp up \
 Made with ❤️ by [DilongWu](https://github.com/DilongWu) & Claude Sonnet 4.5
 
 </div>
+
+## 白总语音（待部署审查）
+
+复用网站用户名密码和服务端会话，Azure 持久中继通过 VM 出站 worker 接通白总。安装边界、环境变量和真机验收说明见 [语音接入说明](docs/VOICE.md)。

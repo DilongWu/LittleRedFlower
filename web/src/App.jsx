@@ -71,6 +71,7 @@ const NAV_GROUPS = [
     icon: 'Wrench',
     items: [
       { key: 'diagnosis', label: '个股诊断', labelShort: '诊断', icon: 'Stethoscope' },
+      { key: 'voice', label: '白总语音', labelShort: '语音', icon: 'Wrench' },
       { key: 'calendar', label: '财经日历', labelShort: '日历', icon: 'CalendarDays' },
     ],
   },
@@ -99,9 +100,17 @@ const findGroupForTab = (tabKey) => {
 };
 
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    return localStorage.getItem('auth_token') === 'valid_token';
-  });
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const authGeneration = useRef(0);
+  useEffect(() => {
+    localStorage.removeItem('auth_token');
+    const generation = authGeneration.current;
+    let cancelled = false;
+    fetch('/api/session', { credentials: 'same-origin', cache: 'no-store' })
+      .then(response => { if (!cancelled && generation === authGeneration.current) setIsAuthenticated(response.ok); })
+      .catch(() => { if (!cancelled && generation === authGeneration.current) setIsAuthenticated(false); });
+    return () => { cancelled = true; };
+  }, []);
   const [loginUser, setLoginUser] = useState('');
   const [loginPass, setLoginPass] = useState('');
   const [loginError, setLoginError] = useState('');
@@ -144,6 +153,7 @@ function App() {
   /* ─── Auth ─── */
   const handleLogin = async (e) => {
     e.preventDefault();
+    authGeneration.current += 1;
     try {
       const response = await fetch('/api/login', {
         method: 'POST',
@@ -152,7 +162,7 @@ function App() {
       });
 
       if (response.ok) {
-        localStorage.setItem('auth_token', 'valid_token');
+        setLoginPass('');
         setIsAuthenticated(true);
         setLoginError('');
       } else {
@@ -163,8 +173,14 @@ function App() {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('auth_token');
+  const handleLogout = async () => {
+    try {
+      const response = await fetch('/api/logout', { method: 'POST' });
+      if (!response.ok) throw Error('logout failed');
+    } catch {
+      window.alert('退出失败，请重试，以确保服务端会话已撤销。');
+      return;
+    }
     setIsAuthenticated(false);
     setLoginUser('');
     setLoginPass('');
@@ -446,6 +462,7 @@ function App() {
       {/* ── Main Content ── */}
       <div className="main-content">
         {activeTab === 'watchlist' && <Watchlist />}
+        {activeTab === 'voice' && <iframe title="白总语音" src="/voice/index.html" allow="microphone; screen-wake-lock" style={{ width: '100%', height: '80vh', border: 0 }} />}
 
         {activeTab === 'sentiment' && (
           <SentimentDashboard data={sentimentData} loading={sentimentLoading} />
